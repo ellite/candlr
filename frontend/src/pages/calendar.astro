@@ -88,7 +88,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
   </script>
   <script>
     import { avatarHtml, escapeHtml } from "../lib/avatar.js";
-    import { MONTH_NAMES, ageLabel } from "../lib/dates.js";
+    import { MONTH_NAMES, ageLabelForOccurrence } from "../lib/dates.js";
 
     const people = window.__CANDLR_PEOPLE__;
 
@@ -147,15 +147,18 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
       for (let i = 0; i < totalCells; i++) {
         let cellMonth = viewMonth;
+        let cellYear = viewYear;
         let cellDay;
         let outside = false;
 
         if (i < leading) {
           cellMonth = prevMonth;
+          cellYear = prevYear;
           cellDay = daysPrevMonth - leading + i + 1;
           outside = true;
         } else if (i >= leading + daysThisMonth) {
           cellMonth = nextMonth;
+          cellYear = nextYear;
           cellDay = i - leading - daysThisMonth + 1;
           outside = true;
         } else {
@@ -167,7 +170,11 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           viewYear === today.getFullYear() &&
           viewMonth === today.getMonth() + 1 &&
           cellDay === today.getDate();
-        const entries = eventsByDay.get(`${cellMonth}-${cellDay}`) || [];
+        // Skip events that haven't happened yet as of this cell's year -
+        // a birthday shouldn't appear on the calendar before it occurred.
+        const entries = (eventsByDay.get(`${cellMonth}-${cellDay}`) || []).filter(
+          ({ event }) => !event.year_known || !event.year || cellYear >= event.year
+        );
 
         const cell = document.createElement(entries.length ? "button" : "div");
         if (entries.length) cell.type = "button";
@@ -199,7 +206,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         cell.innerHTML = html;
         if (entries.length) {
           cell.setAttribute("aria-label", `${MONTH_NAMES[cellMonth - 1]} ${cellDay}: ${entries.length} ${entries.length === 1 ? "event" : "events"}`);
-          cell.addEventListener("click", () => openDayModal(cellMonth, cellDay, entries));
+          cell.addEventListener("click", () => openDayModal(cellMonth, cellDay, cellYear, entries));
         }
         grid.appendChild(cell);
       }
@@ -210,7 +217,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     const dayModalTitle = document.getElementById("day-modal-title");
     const dayModalList = document.getElementById("day-modal-list");
 
-    function openDayModal(month, day, entries) {
+    function openDayModal(month, day, year, entries) {
       dayModalTitle.textContent = `${MONTH_NAMES[month - 1]} ${day}`;
       dayModalList.innerHTML = "";
       for (const { person, event } of entries) {
@@ -218,7 +225,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         row.href = `/events?open=${person.id}`;
         row.className =
           "flex items-center gap-3 p-2.5 rounded-lg hover:bg-stone-50 dark:hover:bg-white/5 transition-colors";
-        const age = ageLabel(event, true);
+        const age = ageLabelForOccurrence(event, year, today);
         row.innerHTML = `
           ${avatarHtml(person, "w-9 h-9 text-xs")}
           <div class="min-w-0 flex-1">
