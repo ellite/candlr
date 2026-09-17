@@ -9,7 +9,7 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { escapeHtml, avatarHtml } from "./avatar.js";
-import { formatDate, ageLabel, dueLabel } from "./dates.js";
+import { formatDate, ageLabel, dueLabel, highlightNumber } from "./dates.js";
 
 marked.setOptions({ breaks: true });
 
@@ -35,8 +35,8 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <div class="text-sm font-medium">${escapeHtml(ev.event_type.name)}</div>
-            <div class="text-xs text-zinc-500 dark:text-zinc-400">
-              ${escapeHtml(formatDate(ev))}${escapeHtml(ageLabel(ev))} &middot; ${dueLabel(ev.days_until)}
+            <div class="text-xs text-zinc-600 dark:text-zinc-300">
+              ${escapeHtml(formatDate(ev))}${highlightNumber(ageLabel(ev))} &middot; ${dueLabel(ev.days_until)}
             </div>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">

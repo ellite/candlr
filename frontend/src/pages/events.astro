@@ -60,12 +60,12 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     <p id="search-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
     <div id="empty-state" class="hidden card p-10 text-center">
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">No dates yet. Add the first one to get started.</p>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">No dates yet. Add the first one to get started.</p>
       <button class="btn-primary" id="empty-add-date-btn">+ Add</button>
     </div>
 
     <div id="no-results" class="hidden card p-10 text-center">
-      <p class="text-sm text-zinc-500 dark:text-zinc-400">No matching names. Try another search or clear it to see all cards.</p>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300">No matching names. Try another search or clear it to see all cards.</p>
     </div>
 
     <div id="people-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"></div>
@@ -117,7 +117,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
             </select>
           </div>
           <input id="form-year" class="input" type="number" placeholder="Year" min="1" max="2100" />
-          <label class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-2 cursor-pointer">
+          <label class="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300 mt-2 cursor-pointer">
             <input type="checkbox" id="form-year-unknown" />
             I don't know (or don't want to enter) the year
           </label>
@@ -145,7 +145,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           </div>
           <div id="form-image-preview" class="hidden flex items-center gap-3 mt-3">
             <img id="form-image-preview-img" class="w-12 h-12 rounded-full object-cover" alt="" />
-            <button type="button" id="form-image-edit-btn" class="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">Crop</button>
+            <button type="button" id="form-image-edit-btn" class="text-xs text-zinc-600 dark:text-zinc-300 hover:underline">Crop</button>
             <button type="button" id="form-image-remove-btn" class="text-xs text-red-600 dark:text-red-400 hover:underline">Remove</button>
           </div>
           <div id="form-image-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs px-3 py-2 rounded-lg mt-2"></div>
@@ -181,7 +181,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           <circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="M21 21l-4.3-4.3" /><path stroke-linecap="round" d="M11 8v6M8 11h6" />
         </svg>
       </div>
-      <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Drag the photo to reposition it, use the slider to zoom.</p>
+      <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-4">Drag the photo to reposition it, use the slider to zoom.</p>
       <div class="flex gap-2 justify-end">
         <button type="button" data-editor-cancel class="btn-secondary">Cancel</button>
         <button type="button" data-editor-confirm class="btn-primary">Use photo</button>
@@ -198,7 +198,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     import { initImageEditor } from "../lib/imageEditor.js";
     import { createPersonDetail } from "../lib/personDetail.js";
     import { escapeHtml, avatarHtml } from "../lib/avatar.js";
-    import { ageLabel, dueLabel } from "../lib/dates.js";
+    import { ageLabel, dueLabel, highlightNumber } from "../lib/dates.js";
 
     enhanceSelects();
     const openImageEditor = initImageEditor(document.getElementById("image-editor-modal"));
@@ -255,10 +255,10 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         card.innerHTML = `
           ${avatarHtml(person, "w-16 h-16 text-lg")}
           <div class="text-sm font-medium truncate w-full">${escapeHtml(person.name)}</div>
-          <div class="text-xs text-zinc-500 dark:text-zinc-400 truncate w-full">
+          <div class="text-xs text-zinc-600 dark:text-zinc-300 truncate w-full">
             ${escapeHtml(soonest.event_type.name)} &middot; ${dueLabel(soonest.days_until)}
           </div>
-          ${age ? `<div class="text-xs text-zinc-400 dark:text-zinc-500 truncate w-full">${escapeHtml(age)}</div>` : ""}
+          ${age ? `<div class="text-xs text-zinc-500 dark:text-zinc-400 truncate w-full">${highlightNumber(age)}</div>` : ""}
         `;
         card.addEventListener("click", () => personDetail.open(person.id));
         grid.appendChild(card);

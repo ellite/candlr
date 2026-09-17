@@ -39,7 +39,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
       <div class="overflow-x-auto -mx-6">
         <table class="w-full text-sm">
           <thead>
-            <tr class="text-left text-xs text-zinc-500 dark:text-zinc-400 border-b">
+            <tr class="text-left text-xs text-zinc-600 dark:text-zinc-300 border-b">
               <th class="font-medium px-6 py-2">Username</th>
               <th class="font-medium px-6 py-2">Email</th>
               <th class="font-medium px-6 py-2">Role</th>
@@ -50,7 +50,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
             {users.map((u) => (
               <tr class="border-b last:border-0" data-user-row={u.id}>
                 <td class="px-6 py-3 font-medium">{u.username}</td>
-                <td class="px-6 py-3 text-zinc-500 dark:text-zinc-400">{u.email}</td>
+                <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{u.email}</td>
                 <td class="px-6 py-3">
                   <span
                     data-role-badge
@@ -102,7 +102,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
           </svg>
         </summary>
         <div class="pt-4">
-          <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+          <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
             Creates an account directly. This bypasses the registration-enabled and max-users settings.
           </p>
           <div id="add-user-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
@@ -130,7 +130,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
     <div id="delete-user-modal-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
       <h2 class="text-base font-semibold mb-1.5">Delete <span id="delete-user-name"></span>?</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         This permanently deletes their account and all of their data. This cannot be undone.
       </p>
       <div class="flex gap-2 justify-end">
@@ -160,7 +160,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
       return `
         <tr class="border-b last:border-0" data-user-row="${u.id}">
           <td class="px-6 py-3 font-medium">${username.innerHTML}</td>
-          <td class="px-6 py-3 text-zinc-500 dark:text-zinc-400">${email.innerHTML}</td>
+          <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">${email.innerHTML}</td>
           <td class="px-6 py-3">
             <span data-role-badge class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400">User</span>
           </td>

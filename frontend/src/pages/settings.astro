@@ -34,18 +34,18 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
     <div>
       <h1 class="text-lg font-semibold tracking-tight">Settings</h1>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage your account.</p>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">Manage your account.</p>
     </div>
 
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-4">Account</h2>
       <dl class="space-y-3 text-sm">
         <div class="flex items-center justify-between gap-4">
-          <dt class="text-zinc-500 dark:text-zinc-400">Username</dt>
+          <dt class="text-zinc-600 dark:text-zinc-300">Username</dt>
           <dd class="font-medium">{user.username}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
-          <dt class="text-zinc-500 dark:text-zinc-400">Email</dt>
+          <dt class="text-zinc-600 dark:text-zinc-300">Email</dt>
           <dd class="font-medium">{user.email}</dd>
         </div>
       </dl>
@@ -53,7 +53,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-1">Events</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         The kinds of dates you can track. Birthday and Anniversary are built in and cannot be deleted. Add your own too.
       </p>
 
@@ -100,7 +100,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       <h2 class="text-sm font-medium mb-1">Password</h2>
       {user.has_password ? (
         <>
-          <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Change the password you use to sign in.</p>
+          <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">Change the password you use to sign in.</p>
           <div id="password-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
           <div id="password-success" class="hidden bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
           <div class="space-y-4 max-w-sm">
@@ -120,7 +120,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           </div>
         </>
       ) : (
-        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+        <p class="text-sm text-zinc-600 dark:text-zinc-300">
           You sign in through SSO, so there's no password on this account.
         </p>
       )}
@@ -128,7 +128,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-1">Notifications</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-5">
         Set up a channel to get reminders on the day of a birthday or anniversary.
         Click a channel to configure it.
       </p>
@@ -136,7 +136,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       <div class="pb-5 border-b mb-5">
         <label class="label" for="notify-time">When to notify</label>
         <input id="notify-time" class="input max-w-xs" type="time" />
-        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+        <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-2">
           The time of day, in your instance's configured timezone, to send a reminder on the day
           of any date with notifications turned on. Applies across every enabled channel.
         </p>
@@ -155,7 +155,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
             </svg>
           </summary>
           <div class="pt-3">
-            <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Sent to {user.email}</p>
+            <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-3">Sent to {user.email}</p>
             <div id="email-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
               <button class="btn-secondary text-xs px-3 py-1.5" data-save="email">Save</button>
@@ -280,7 +280,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
         <div>
           <h3 class="text-sm font-medium mb-1">Device notifications</h3>
-          <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-3" id="webpush-description">
+          <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-3" id="webpush-description">
             Get notifications on this device, even when Candlr isn't open in a tab.
           </p>
           <div id="webpush-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
@@ -294,7 +294,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-1">Data management</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         Permanently deletes every person and date you're tracking. Your account and settings are kept. This cannot be undone.
       </p>
       <button id="open-delete-events-modal" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
@@ -304,7 +304,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     <section class="card p-6 border-red-200 dark:border-red-900/50">
       <h2 class="text-sm font-medium mb-1 text-red-600 dark:text-red-400">Danger zone</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         Permanently delete your account and all of its data. This cannot be undone.
       </p>
       <button id="open-delete-modal" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
@@ -317,7 +317,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     <div id="delete-event-type-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
       <h2 class="text-base font-semibold mb-1.5">Delete <span id="delete-event-type-name"></span>?</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         This also deletes every date tracked under this type. This cannot be undone.
       </p>
       <div class="flex gap-2 justify-end">
@@ -334,7 +334,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     <div id="delete-events-modal-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
       <h2 class="text-base font-semibold mb-1.5">Delete all events?</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         This permanently deletes every person and date you're tracking. Your account and settings are kept. This cannot be undone.
       </p>
       <div id="delete-events-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
@@ -358,7 +358,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     <div id="delete-modal-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
       <h2 class="text-base font-semibold mb-1.5">Delete account?</h2>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         This permanently deletes your account and all of its data. This cannot be undone.
       </p>
       <div id="delete-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>

@@ -7,7 +7,7 @@ const { hasPassword } = Astro.props;
   <h2 class="text-sm font-medium mb-1">Two-factor authentication</h2>
   {hasPassword ? (
     <>
-      <p id="mfa-status" class="text-sm text-zinc-500 dark:text-zinc-400 mb-4" aria-live="polite">Loading security settings…</p>
+      <p id="mfa-status" class="text-sm text-zinc-600 dark:text-zinc-300 mb-4" aria-live="polite">Loading security settings…</p>
       <p id="mfa-error" role="alert" class="hidden text-sm text-red-600 dark:text-red-400 mb-4"></p>
       <form id="mfa-form" class="hidden space-y-4 max-w-sm">
         <div>
@@ -37,14 +37,14 @@ const { hasPassword } = Astro.props;
       </form>
       <div id="mfa-recovery" class="hidden mt-4 space-y-3">
         <p class="text-sm font-medium">Save your recovery codes</p>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400">Each code can be used once if you lose access to your authenticator. These codes are only shown now. Store them somewhere safe.</p>
+        <p class="text-sm text-zinc-600 dark:text-zinc-300">Each code can be used once if you lose access to your authenticator. These codes are only shown now. Store them somewhere safe.</p>
         <pre id="mfa-recovery-list" class="text-sm whitespace-pre-wrap select-all"></pre>
         <button id="mfa-download" type="button" class="btn-secondary">Download codes</button>
         <button id="mfa-done" type="button" class="btn-primary">I saved my codes</button>
       </div>
     </>
   ) : (
-    <p class="text-sm text-zinc-500 dark:text-zinc-400">You sign in through SSO. Manage two-factor authentication in your identity provider's account settings.</p>
+    <p class="text-sm text-zinc-600 dark:text-zinc-300">You sign in through SSO. Manage two-factor authentication in your identity provider's account settings.</p>
   )}
 </section>
 

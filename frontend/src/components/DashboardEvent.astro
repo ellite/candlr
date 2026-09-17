@@ -1,11 +1,12 @@
 ---
 import { initials } from "../lib/avatar.js";
-import { MONTH_NAMES } from "../lib/dates.js";
+import { MONTH_NAMES, splitNumber } from "../lib/dates.js";
 import { milestone, type DashboardEntry } from "../lib/dashboard";
 
 interface Props { entry: DashboardEntry; prominent?: boolean }
 const { entry: { person, event }, prominent = false } = Astro.props;
 const occasion = milestone(event);
+const occasionParts = occasion ? splitNumber(occasion) : null;
 const due = event.days_until === 0 ? "Today" : event.days_until === 1 ? "Tomorrow" : `In ${event.days_until} days`;
 ---
 
@@ -20,8 +21,16 @@ const due = event.days_until === 0 ? "Today" : event.days_until === 1 ? "Tomorro
   )}
   <div class="min-w-0 flex-1">
     <p class="font-medium text-sm break-words">{person.name}</p>
-    <p class="text-xs text-zinc-500 dark:text-zinc-400 break-words mt-0.5">{event.event_type.name}{occasion && ` · ${occasion}`}</p>
-    <p class="text-xs mt-2 text-zinc-500 dark:text-zinc-400">
+    <p class="text-xs text-zinc-600 dark:text-zinc-300 break-words mt-0.5">
+      {event.event_type.name}
+      {occasionParts && (
+        <>
+          {" · "}
+          {occasionParts.before}<strong class="font-semibold text-accent dark:text-accent-light">{occasionParts.number}</strong>{occasionParts.after}
+        </>
+      )}
+    </p>
+    <p class="text-xs mt-2 text-zinc-600 dark:text-zinc-300">
       <span class:list={[prominent && "text-accent dark:text-accent-light font-medium"]}>{due}</span>
       {event.days_until > 0 && ` · ${MONTH_NAMES[event.month - 1]} ${event.day}`}
     </p>

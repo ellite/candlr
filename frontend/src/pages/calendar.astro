@@ -46,7 +46,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         </button>
         <div class="flex items-center gap-3">
           <div id="cal-month-label" class="text-base font-semibold tabular-nums"></div>
-          <button type="button" id="cal-today-btn" class="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">
+          <button type="button" id="cal-today-btn" class="text-xs text-zinc-600 dark:text-zinc-300 hover:underline">
             Today
           </button>
         </div>
@@ -59,7 +59,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
       <div class="grid grid-cols-7 gap-1 mb-1">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-          <div class="text-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500 py-1">{d}</div>
+          <div class="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 py-1">{d}</div>
         ))}
       </div>
 
@@ -88,7 +88,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
   </script>
   <script>
     import { avatarHtml, escapeHtml } from "../lib/avatar.js";
-    import { MONTH_NAMES, ageLabelForOccurrence } from "../lib/dates.js";
+    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber } from "../lib/dates.js";
 
     const people = window.__CANDLR_PEOPLE__;
 
@@ -189,8 +189,8 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
         const dayNumClass = isToday
           ? "font-semibold text-accent dark:text-accent-light"
-          : "text-zinc-500 dark:text-zinc-400";
-        let html = `<span class="text-[11px] sm:text-xs ${dayNumClass}">${cellDay}</span>`;
+          : "text-zinc-600 dark:text-zinc-300";
+        let html = `<span class="text-xs sm:text-sm ${dayNumClass}">${cellDay}</span>`;
 
         if (entries.length === 1) {
           html += `<div class="mt-1 sm:mt-1.5">${avatarHtml(entries[0].person, "w-4 h-4 sm:w-5 sm:h-5 text-[8px]")}</div>`;
@@ -230,8 +230,8 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           ${avatarHtml(person, "w-9 h-9 text-xs")}
           <div class="min-w-0 flex-1">
             <div class="text-sm font-medium truncate">${escapeHtml(person.name)}</div>
-            <div class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-              ${escapeHtml(event.event_type.name)}${age ? ` &middot; ${escapeHtml(age)}` : ""}
+            <div class="text-xs text-zinc-600 dark:text-zinc-300 truncate">
+              ${escapeHtml(event.event_type.name)}${age ? ` &middot; ${highlightNumber(age)}` : ""}
             </div>
           </div>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-300 dark:text-zinc-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

@@ -12,6 +12,31 @@ export function formatDate(event) {
   return event.year_known && event.year ? `${m} ${event.day}, ${event.year}` : `${m} ${event.day}`;
 }
 
+// Wraps the digits in an age/milestone string (e.g. "Turns 36") in a bold,
+// accent-colored span so the number stands out. Purely presentational, so
+// it's applied at render time rather than baked into the label functions
+// themselves - those stay plain text for callers (like tests) that don't
+// want markup. Safe to inject as-is: the input is always our own generated
+// "Word N" text, never user-controlled. Browser-only call sites (built as
+// innerHTML strings); server-rendered Astro components should use
+// splitNumber instead so JSX handles escaping.
+export function highlightNumber(text) {
+  return text.replace(/\d+/, (n) => `<strong class="font-semibold text-accent dark:text-accent-light">${n}</strong>`);
+}
+
+// Same idea as highlightNumber, but splits the string into parts instead of
+// building an HTML string - for Astro frontmatter (runs server-side, no DOM,
+// so the innerHTML-based escapeHtml in avatar.js isn't available there).
+export function splitNumber(text) {
+  const match = text.match(/\d+/);
+  if (!match) return { before: text, number: "", after: "" };
+  return {
+    before: text.slice(0, match.index),
+    number: match[0],
+    after: text.slice(match.index + match[0].length),
+  };
+}
+
 export function dueLabel(daysUntil) {
   if (daysUntil === 0) return "Today";
   if (daysUntil === 1) return "Tomorrow";

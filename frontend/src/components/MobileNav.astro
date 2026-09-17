@@ -13,10 +13,10 @@ const links = [
 <nav id="mobile-nav" aria-label="Main navigation" class="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t bg-surface dark:bg-surface-dark pb-[env(safe-area-inset-bottom)]">
   {links.map(({ page, href, label, path }) => (
     <a href={href} aria-current={activePage === page ? "page" : undefined} class:list={[
-      "flex flex-1 min-w-0 flex-col items-center justify-center gap-1 py-3 text-[11px] font-medium transition-colors",
+      "flex flex-1 min-w-0 flex-col items-center justify-center gap-1 py-3 text-xs font-medium transition-colors",
       activePage === page
         ? "text-accent dark:text-accent-light bg-accent/10 dark:bg-accent-light/5"
-        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white",
+        : "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white",
     ]}>
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d={path} />
