@@ -1,0 +1,38 @@
+---
+import Logo from "./Logo.astro";
+---
+
+<div class="relative hidden md:flex flex-col justify-between overflow-hidden bg-zinc-950 text-white px-12 py-12 lg:px-16">
+  <div
+    class="pointer-events-none absolute -top-24 -left-24 w-[28rem] h-[28rem] rounded-full opacity-20 blur-3xl"
+    style="background: radial-gradient(circle, var(--candlr-primary) 0%, transparent 70%);"
+  >
+  </div>
+
+  <a href="/" class="relative z-10">
+    <Logo size="md" class="text-white" />
+  </a>
+
+  <div class="relative z-10 max-w-sm">
+    <h2 class="text-3xl font-semibold tracking-tight leading-tight mb-3">
+      Never miss a birthday again.
+    </h2>
+    <p class="text-zinc-400 text-sm leading-relaxed mb-10">
+      Candlr keeps track of everyone's birthdays in one place, and reminds you before they happen.
+    </p>
+
+    <div class="grid grid-cols-7 gap-1.5 w-fit">
+      {Array.from({ length: 28 }).map((_, i) => (
+        i === 16 ? (
+          <div class="w-5 h-5 rounded-[5px] bg-primary flex items-center justify-center">
+            <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+          </div>
+        ) : (
+          <div class="w-5 h-5 rounded-[5px] bg-white/8"></div>
+        )
+      ))}
+    </div>
+  </div>
+
+  <p class="relative z-10 text-xs text-zinc-600">Open source and self-hosted.</p>
+</div>

@@ -1,0 +1,64 @@
+---
+import NavBar from "../components/NavBar.astro";
+import MobileNav from "../components/MobileNav.astro";
+
+interface Props {
+  title?: string;
+  fullPage?: boolean;
+  user?: { username: string; is_admin?: boolean } | null;
+  activePage?: "dashboard" | "events" | "calendar" | "settings" | "admin";
+}
+const { title = "Candlr", fullPage = false, user = null, activePage } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#fafafa" />
+    <meta name="description" content="A simple birthday calendar." />
+    <link rel="icon" href="/favicon.ico?v=4" sizes="16x16 32x32 48x48 64x64" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-v4.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4" />
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    <title>{title} | Candlr</title>
+
+    <script is:inline>
+      const saved = localStorage.getItem("candlr-theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const isDark = saved === "dark" || (!saved && prefersDark);
+      if (isDark) document.documentElement.classList.add("dark");
+      const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeColorMeta) themeColorMeta.setAttribute("content", isDark ? "#09090b" : "#fafafa");
+    </script>
+  </head>
+
+  <body class:list={[
+    fullPage ? "min-h-screen flex items-center justify-center" : "min-h-screen",
+    user && "pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0",
+  ]}>
+    {user && <NavBar user={user} activePage={activePage} />}
+    <slot />
+    {user && <MobileNav activePage={activePage} />}
+    <script>
+      // Registered on every page, including login/register - not just when
+      // logged in - so the browser can evaluate install criteria (manifest +
+      // an active service worker) from the very first visit, not only once a
+      // user has signed in. Safe to call more than once - the push-enable
+      // flow in Settings also registers "/sw.js", and the browser just
+      // returns the existing registration for a URL it's already registered.
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((err) => {
+            console.warn("[SW] Registration failed:", err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import "../styles/global.css";
+</style>

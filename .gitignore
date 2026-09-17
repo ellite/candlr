@@ -1,0 +1,52 @@
+# Secrets & environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Data
+data/
+
+# Design scratch
+design/
+
+# AI agents
+.claude/
+.codex/
+.agents/
+memory/
+.cursor/
+.aider*
+.copilot/
+.continue/
+.codeium/
+.windsurf/
+.github/copilot*
+copilot-instructions.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.astro/
+
+# OS
+.DS_Store
+Thumbs.db

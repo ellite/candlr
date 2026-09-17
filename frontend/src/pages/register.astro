@@ -1,0 +1,160 @@
+---
+import Layout from "../layouts/Layout.astro";
+import ThemeToggle from "../components/ThemeToggle.astro";
+import Logo from "../components/Logo.astro";
+import AuthHero from "../components/AuthHero.astro";
+import PasswordInput from "../components/PasswordInput.astro";
+import { apiJson } from "../lib/api";
+
+if (Astro.cookies.get("candlr_token")?.value) {
+  return Astro.redirect("/");
+}
+
+const cookies = Astro.request.headers.get("cookie") ?? "";
+
+const oidcConfig = await apiJson<{ enabled: boolean; provider_name: string; disable_password_login: boolean }>(
+  "/oidc/config",
+  { cookies }
+).catch(() => ({ enabled: false, provider_name: "SSO", disable_password_login: false }));
+
+const registration = await apiJson<{ enabled: boolean }>("/auth/registration-status", { cookies }).catch(() => ({
+  enabled: false,
+}));
+
+const canRegister = registration.enabled && !oidcConfig.disable_password_login;
+---
+
+<Layout title="Register">
+  <div class="min-h-screen grid md:grid-cols-2">
+    <AuthHero />
+
+    <div class="relative flex items-center justify-center px-4 py-16">
+      <div class="fixed top-4 right-4 z-20">
+        <ThemeToggle class="p-2 rounded-lg bg-surface dark:bg-surface-dark border" />
+      </div>
+
+      <div class="w-full max-w-[360px]">
+        <div class="mb-8">
+          <div class="md:hidden mb-4">
+            <Logo size="md" />
+          </div>
+          <h1 class="text-lg font-semibold tracking-tight">Create account</h1>
+          <p class="text-zinc-500 dark:text-zinc-400 mt-1 text-sm">Join Candlr</p>
+        </div>
+
+        {canRegister ? (
+          <>
+            <div class="card p-6 space-y-4">
+              <div id="error-msg" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg"></div>
+
+              {oidcConfig.enabled && (
+                <a
+                  href="/oidc-start"
+                  class="btn-secondary flex items-center justify-center gap-2 w-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                  </svg>
+                  Sign in with {oidcConfig.provider_name}
+                </a>
+              )}
+
+              {oidcConfig.enabled && (
+                <div class="relative py-1">
+                  <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t"></div>
+                  </div>
+                  <div class="relative flex justify-center">
+                    <span class="bg-surface dark:bg-surface-dark px-3 text-xs text-zinc-400">or</span>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label class="label" for="username">Username</label>
+                <input id="username" class="input" type="text" autocomplete="username" placeholder="your_username" />
+              </div>
+              <div>
+                <label class="label" for="email">Email</label>
+                <input id="email" class="input" type="email" autocomplete="email" placeholder="you@example.com" />
+              </div>
+              <div>
+                <label class="label" for="password">Password</label>
+                <PasswordInput id="password" autocomplete="new-password" placeholder="••••••••" />
+              </div>
+              <div>
+                <label class="label" for="confirm-password">Confirm password</label>
+                <PasswordInput id="confirm-password" autocomplete="new-password" placeholder="••••••••" />
+              </div>
+              <button id="register-btn" class="btn-primary w-full mt-1">Create account</button>
+            </div>
+
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-4">
+              Already have an account? <a href="/login" class="text-zinc-900 dark:text-zinc-100 font-medium hover:underline">Sign in</a>
+            </p>
+          </>
+        ) : (
+          <div class="card p-6 space-y-3">
+            <p class="text-zinc-600 dark:text-zinc-400 text-sm">
+              {oidcConfig.enabled
+                ? `Registration is closed. Use ${oidcConfig.provider_name} to sign in instead.`
+                : "Registration is currently disabled on this instance."}
+            </p>
+            <a href="/login" class="btn-primary inline-block">Back to login</a>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  {canRegister && (
+    <script>
+      const btn = document.getElementById("register-btn") as HTMLButtonElement;
+      const errEl = document.getElementById("error-msg")!;
+
+      async function submit() {
+        const username = (document.getElementById("username") as HTMLInputElement).value.trim();
+        const email = (document.getElementById("email") as HTMLInputElement).value.trim();
+        const password = (document.getElementById("password") as HTMLInputElement).value;
+        const confirmPassword = (document.getElementById("confirm-password") as HTMLInputElement).value;
+        if (!username || !email || !password || !confirmPassword) return;
+        if (password !== confirmPassword) {
+          errEl.textContent = "Passwords do not match";
+          errEl.classList.remove("hidden");
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Creating…";
+        errEl.classList.add("hidden");
+
+        try {
+          const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            let detail = "Registration failed";
+            try { detail = JSON.parse(text).detail ?? detail; } catch {}
+            throw new Error(detail);
+          }
+          window.location.href = "/";
+        } catch (e: any) {
+          errEl.textContent = e.message;
+          errEl.classList.remove("hidden");
+          btn.disabled = false;
+          btn.textContent = "Create Account";
+        }
+      }
+
+      btn.addEventListener("click", submit);
+      ["username", "email", "password", "confirm-password"].forEach(id => {
+        document.getElementById(id)?.addEventListener("keydown", (e) => {
+          if ((e as KeyboardEvent).key === "Enter") submit();
+        });
+      });
+    </script>
+  )}
+</Layout>

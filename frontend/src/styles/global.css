@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: var(--candlr-primary);
+  --color-primary-dark: var(--candlr-primary-dark);
+  --color-primary-light: var(--candlr-primary-light);
+  --color-surface: var(--candlr-surface);
+  --color-surface-dark: var(--candlr-surface-dark);
+  --color-bg: var(--candlr-bg);
+  --color-bg-dark: var(--candlr-bg-dark);
+  --color-border: var(--candlr-border);
+  --color-border-dark: var(--candlr-border-dark);
+  --color-accent: var(--candlr-accent);
+  --color-accent-light: var(--candlr-accent-light);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Neutral, near-monochrome UI. The accent is used sparingly, for links,
+     focus rings and small highlights, not for the primary button. */
+  --candlr-primary: #4f46e5;
+  --candlr-primary-dark: #4338ca;
+  --candlr-primary-light: #818cf8;
+  --candlr-surface: #ffffff;
+  --candlr-surface-dark: #18181b;
+  --candlr-bg: #fafafa;
+  --candlr-bg-dark: #09090b;
+  --candlr-border: #e4e4e7;
+  --candlr-border-dark: #27272a;
+  --candlr-accent: #c5545c;
+  --candlr-accent-light: #dd7b73;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--color-border);
+}
+:root.dark * {
+  border-color: var(--color-border-dark);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #18181b;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
+}
+:root.dark body {
+  background-color: var(--color-bg-dark);
+  color: #fafafa;
+}
+
+/* Tailwind's preflight resets button cursor to default; every clickable
+   control here should show a pointer, disabled ones excepted. */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Minimal styling for rendered markdown (event notes). Written as plain CSS
+   (not @apply) and marked !important: Tailwind's preflight list/margin
+   resets in @layer base were still winning over an @apply'd, unlayered
+   version of these same rules in testing, so this is the version verified
+   to actually work rather than the one that should in theory. */
+.prose-notes {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.prose-notes pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.prose-notes table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.prose-notes ul {
+  list-style-type: disc !important;
+  margin: 0.5rem 0 !important;
+  padding-left: 1.25rem !important;
+}
+.prose-notes ol {
+  list-style-type: decimal !important;
+  margin: 0.5rem 0 !important;
+  padding-left: 1.25rem !important;
+}
+.prose-notes li {
+  margin: 0.125rem 0 !important;
+}
+.prose-notes p {
+  margin: 0.5rem 0 !important;
+}
+.prose-notes h1,
+.prose-notes h2,
+.prose-notes h3 {
+  font-weight: 600 !important;
+  margin: 0.75rem 0 0.25rem !important;
+}
+.prose-notes a {
+  color: var(--candlr-primary-dark);
+  text-decoration: underline !important;
+}
+:root.dark .prose-notes a {
+  color: var(--candlr-primary-light);
+}
+.prose-notes code {
+  background-color: rgba(0, 0, 0, 0.06);
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.85em;
+}
+:root.dark .prose-notes code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.prose-notes blockquote {
+  border-left: 2px solid var(--color-border);
+  padding-left: 0.75rem !important;
+  font-style: italic;
+  opacity: 0.8;
+}
+.prose-notes > :first-child {
+  margin-top: 0 !important;
+}
+.prose-notes > :last-child {
+  margin-bottom: 0 !important;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background-color: #d4d4d8;
+}
+:root.dark ::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
+}
+
+@layer components {
+  .card {
+    @apply bg-surface dark:bg-surface-dark rounded-xl border;
+  }
+
+  .btn-primary {
+    @apply bg-zinc-900 hover:bg-zinc-700 text-white
+           dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-900
+           text-sm font-medium px-4 py-2.5 rounded-lg
+           transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white hover:bg-zinc-50 dark:bg-white/5 dark:hover:bg-white/10
+           border text-sm font-medium px-4 py-2.5 rounded-lg
+           transition-colors duration-150;
+  }
+
+  .btn-ghost {
+    @apply text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100
+           dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/5
+           px-3 py-2 rounded-lg transition-colors duration-150;
+  }
+
+  .input {
+    @apply w-full bg-white dark:bg-white/5 border rounded-lg px-3.5 py-2.5 text-sm
+           placeholder:text-zinc-400 dark:placeholder:text-zinc-500
+           focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10
+           transition-shadow;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5;
+  }
+
+  /* Kept only as the marker class enhanceSelects() looks for
+     (select.select) - the native element is hidden and never shown to the
+     user, see .custom-select below for the actual visible control. */
+  .select {
+    @apply sr-only;
+  }
+
+  .custom-select {
+    @apply relative inline-block w-full align-top;
+  }
+
+  .custom-select-trigger {
+    @apply w-full flex items-center justify-between gap-2 bg-white dark:bg-white/5 border rounded-lg
+           pl-3.5 pr-3 py-2.5 text-sm text-left
+           focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10
+           transition-shadow;
+  }
+  .custom-select-trigger:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .custom-select-chevron {
+    @apply w-4 h-4 text-zinc-500 dark:text-zinc-400 flex-shrink-0 transition-transform duration-150;
+  }
+  .custom-select[data-state="open"] .custom-select-chevron {
+    @apply rotate-180;
+  }
+
+  .custom-select-list {
+    @apply absolute z-20 left-0 right-0 mt-1.5 max-h-56 overflow-y-auto
+           bg-white dark:bg-surface-dark border rounded-lg shadow-lg
+           py-1 text-sm;
+  }
+
+  .custom-select-option {
+    @apply px-3.5 py-2 cursor-pointer text-zinc-700 dark:text-zinc-200
+           hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors duration-100;
+  }
+  .custom-select-option[aria-selected="true"] {
+    @apply bg-zinc-100 dark:bg-white/10 font-medium text-zinc-900 dark:text-white;
+  }
+  .custom-select-option.is-highlighted {
+    @apply bg-zinc-100 dark:bg-white/10;
+  }
+}

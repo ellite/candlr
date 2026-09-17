@@ -1,0 +1,103 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import ThemeToggle from "../../components/ThemeToggle.astro";
+import Logo from "../../components/Logo.astro";
+import AuthHero from "../../components/AuthHero.astro";
+import PasswordInput from "../../components/PasswordInput.astro";
+
+if (Astro.cookies.get("candlr_token")?.value) {
+  return Astro.redirect("/");
+}
+
+const { token } = Astro.params;
+---
+
+<Layout title="Reset password">
+  <div class="min-h-screen grid md:grid-cols-2">
+    <AuthHero />
+
+    <div class="relative flex items-center justify-center px-4 py-16">
+      <div class="fixed top-4 right-4 z-20">
+        <ThemeToggle class="p-2 rounded-lg bg-surface dark:bg-surface-dark border" />
+      </div>
+
+      <div class="w-full max-w-[360px]">
+        <div class="mb-8">
+          <div class="md:hidden mb-4">
+            <Logo size="md" />
+          </div>
+          <h1 class="text-lg font-semibold tracking-tight">Choose a new password</h1>
+        </div>
+
+        <div class="card p-6 space-y-4" id="form-card">
+          <div id="error-msg" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg"></div>
+          <div>
+            <label class="label" for="new-password">New password</label>
+            <PasswordInput id="new-password" autocomplete="new-password" placeholder="••••••••" />
+          </div>
+          <div>
+            <label class="label" for="confirm-password">Confirm new password</label>
+            <PasswordInput id="confirm-password" autocomplete="new-password" placeholder="••••••••" />
+          </div>
+          <button id="submit-btn" class="btn-primary w-full mt-1">Reset password</button>
+        </div>
+
+        <div class="card p-6 hidden" id="success-card">
+          <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Your password has been updated.</p>
+          <a href="/login" class="btn-primary inline-block">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ token }}>
+    const btn = document.getElementById("submit-btn");
+    const errEl = document.getElementById("error-msg");
+    const formCard = document.getElementById("form-card");
+    const successCard = document.getElementById("success-card");
+
+    async function submit() {
+      const newPassword = document.getElementById("new-password").value;
+      const confirmPassword = document.getElementById("confirm-password").value;
+
+      errEl.classList.add("hidden");
+      if (!newPassword || !confirmPassword) return;
+      if (newPassword !== confirmPassword) {
+        errEl.textContent = "Passwords do not match";
+        errEl.classList.remove("hidden");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Resetting…";
+
+      try {
+        const res = await fetch(`/api/auth/reset-password/${encodeURIComponent(token)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ new_password: newPassword }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          let detail = "Could not reset password";
+          try { detail = JSON.parse(text).detail ?? detail; } catch {}
+          throw new Error(detail);
+        }
+        formCard.classList.add("hidden");
+        successCard.classList.remove("hidden");
+      } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Reset password";
+      }
+    }
+
+    btn.addEventListener("click", submit);
+    ["new-password", "confirm-password"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submit();
+      });
+    });
+  </script>
+</Layout>

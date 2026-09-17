@@ -1,0 +1,79 @@
+---
+import Layout from "../layouts/Layout.astro";
+import ThemeToggle from "../components/ThemeToggle.astro";
+import Logo from "../components/Logo.astro";
+import AuthHero from "../components/AuthHero.astro";
+---
+
+<Layout title="Two-factor authentication">
+  <div class="min-h-screen grid md:grid-cols-2">
+    <AuthHero />
+
+    <div class="relative flex items-center justify-center px-4 py-16">
+      <div class="fixed top-4 right-4 z-20">
+        <ThemeToggle class="p-2 rounded-lg bg-surface dark:bg-surface-dark border" />
+      </div>
+
+      <div class="w-full max-w-[360px]">
+        <div class="mb-8">
+          <div class="md:hidden mb-4">
+            <Logo size="md" />
+          </div>
+          <h1 class="text-lg font-semibold tracking-tight">Verify your sign-in</h1>
+          <p class="text-zinc-500 dark:text-zinc-400 mt-1 text-sm">Enter the six-digit code from your authenticator app, or use one of your recovery codes.</p>
+        </div>
+
+        <div class="card p-6 space-y-4">
+          <div id="verify-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg"></div>
+
+          <div>
+            <label class="label" for="verification-code">Authenticator or recovery code</label>
+            <input id="verification-code" class="input" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" required maxlength="64" autofocus tabindex="1" />
+          </div>
+          <button id="verify-btn" class="btn-primary w-full mt-1" tabindex="2">Verify</button>
+        </div>
+
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-4">
+          <a href="/login" class="text-zinc-900 dark:text-zinc-100 font-medium hover:underline">Back to sign in</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const btn = document.getElementById("verify-btn") as HTMLButtonElement;
+    const errEl = document.getElementById("verify-error")!;
+    const codeInput = document.getElementById("verification-code") as HTMLInputElement;
+
+    async function submit() {
+      const code = codeInput.value.trim();
+      if (!code) return;
+
+      btn.disabled = true;
+      btn.textContent = "Verifying…";
+      errEl.classList.add("hidden");
+
+      try {
+        const res = await fetch("/api/auth/2fa/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not verify this code");
+        const next = new URL(new URLSearchParams(location.search).get("next") || "/", location.origin);
+        location.href = next.origin === location.origin ? next.href : "/";
+      } catch (e: any) {
+        errEl.textContent = e.message;
+        errEl.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Verify";
+      }
+    }
+
+    btn.addEventListener("click", submit);
+    codeInput.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") submit();
+    });
+  </script>
+</Layout>

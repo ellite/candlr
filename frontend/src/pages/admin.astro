@@ -1,0 +1,303 @@
+---
+import Layout from "../layouts/Layout.astro";
+import PasswordInput from "../components/PasswordInput.astro";
+import { apiJson } from "../lib/api";
+
+const cookies = Astro.request.headers.get("cookie") ?? "";
+
+const meResult = await apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }).catch(() => null);
+if (!meResult) {
+  Astro.cookies.delete("candlr_token", { path: "/" });
+  return Astro.redirect("/login");
+}
+if (!meResult.is_admin) {
+  return Astro.redirect("/");
+}
+
+type AdminUser = {
+  id: number;
+  username: string;
+  email: string;
+  is_admin: boolean;
+  has_password: boolean;
+  created_at: string;
+};
+
+const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(() => [] as AdminUser[])).sort(
+  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+);
+---
+
+<Layout title="Admin" user={{ username: meResult.username, is_admin: true }} activePage="admin">
+  <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+    <div>
+      <h1 class="text-lg font-semibold tracking-tight">Admin</h1>
+    </div>
+
+    <section class="card p-6">
+      <h2 class="text-sm font-medium mb-4">Users</h2>
+      <div class="overflow-x-auto -mx-6">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-zinc-500 dark:text-zinc-400 border-b">
+              <th class="font-medium px-6 py-2">Username</th>
+              <th class="font-medium px-6 py-2">Email</th>
+              <th class="font-medium px-6 py-2">Role</th>
+              <th class="font-medium px-6 py-2 text-right">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody id="users-body">
+            {users.map((u) => (
+              <tr class="border-b last:border-0" data-user-row={u.id}>
+                <td class="px-6 py-3 font-medium">{u.username}</td>
+                <td class="px-6 py-3 text-zinc-500 dark:text-zinc-400">{u.email}</td>
+                <td class="px-6 py-3">
+                  <span
+                    data-role-badge
+                    class:list={[
+                      "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium",
+                      u.is_admin
+                        ? "bg-accent/10 text-accent dark:bg-accent-light/10 dark:text-accent-light"
+                        : "bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400",
+                    ]}
+                  >
+                    {u.is_admin ? "Admin" : "User"}
+                  </span>
+                </td>
+                <td class="px-6 py-3 text-right whitespace-nowrap">
+                  {u.username !== meResult.username && (
+                    <div class="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        class="toggle-admin-btn btn-secondary text-xs px-3 py-1.5"
+                        data-user-id={u.id}
+                        data-is-admin={String(u.is_admin)}
+                      >
+                        {u.is_admin ? "Remove admin" : "Make admin"}
+                      </button>
+                      <button
+                        type="button"
+                        class="delete-user-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        data-user-id={u.id}
+                        data-username={u.username}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card p-6">
+      <details class="group">
+        <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <span class="text-sm font-medium">Add user</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </summary>
+        <div class="pt-4">
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+            Creates an account directly. This bypasses the registration-enabled and max-users settings.
+          </p>
+          <div id="add-user-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
+          <div class="space-y-3 max-w-sm">
+            <div>
+              <label class="label" for="new-user-username">Username</label>
+              <input id="new-user-username" class="input" type="text" autocomplete="off" />
+            </div>
+            <div>
+              <label class="label" for="new-user-email">Email</label>
+              <input id="new-user-email" class="input" type="email" autocomplete="off" />
+            </div>
+            <div>
+              <label class="label" for="new-user-password">Password</label>
+              <PasswordInput id="new-user-password" autocomplete="new-password" />
+            </div>
+            <button id="add-user-btn" type="button" class="btn-primary">Add user</button>
+          </div>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <div id="delete-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="delete-user-modal-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative card p-6 w-full max-w-sm">
+      <h2 class="text-base font-semibold mb-1.5">Delete <span id="delete-user-name"></span>?</h2>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+        This permanently deletes their account and all of their data. This cannot be undone.
+      </p>
+      <div class="flex gap-2 justify-end">
+        <button id="delete-user-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="delete-user-confirm-btn" type="button"
+          class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Add user ──
+    const usersBody = document.getElementById("users-body")!;
+    const addUserError = document.getElementById("add-user-error")!;
+    const addUserBtn = document.getElementById("add-user-btn") as HTMLButtonElement;
+    const newUsernameInput = document.getElementById("new-user-username") as HTMLInputElement;
+    const newEmailInput = document.getElementById("new-user-email") as HTMLInputElement;
+    const newPasswordInput = document.getElementById("new-user-password") as HTMLInputElement;
+
+    function userRowHtml(u: { id: number; username: string; email: string }) {
+      const username = document.createElement("div");
+      username.textContent = u.username;
+      const email = document.createElement("div");
+      email.textContent = u.email;
+      return `
+        <tr class="border-b last:border-0" data-user-row="${u.id}">
+          <td class="px-6 py-3 font-medium">${username.innerHTML}</td>
+          <td class="px-6 py-3 text-zinc-500 dark:text-zinc-400">${email.innerHTML}</td>
+          <td class="px-6 py-3">
+            <span data-role-badge class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400">User</span>
+          </td>
+          <td class="px-6 py-3 text-right whitespace-nowrap">
+            <div class="flex justify-end gap-2">
+              <button type="button" class="toggle-admin-btn btn-secondary text-xs px-3 py-1.5" data-user-id="${u.id}" data-is-admin="false">
+                Make admin
+              </button>
+              <button type="button" class="delete-user-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" data-user-id="${u.id}" data-username="${username.innerHTML}">
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }
+
+    addUserBtn?.addEventListener("click", async () => {
+      const username = newUsernameInput.value.trim();
+      const email = newEmailInput.value.trim();
+      const password = newPasswordInput.value;
+
+      addUserError.classList.add("hidden");
+      if (!username || !email || !password) {
+        addUserError.textContent = "Fill in all fields";
+        addUserError.classList.remove("hidden");
+        return;
+      }
+
+      addUserBtn.disabled = true;
+      try {
+        const res = await fetch("/api/settings/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, email, password }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          let detail = "Could not add user";
+          try { detail = JSON.parse(text).detail ?? detail; } catch {}
+          throw new Error(detail);
+        }
+        const created = await res.json();
+        usersBody.insertAdjacentHTML("beforeend", userRowHtml(created));
+        newUsernameInput.value = "";
+        newEmailInput.value = "";
+        newPasswordInput.value = "";
+      } catch (e: any) {
+        addUserError.textContent = e.message;
+        addUserError.classList.remove("hidden");
+      } finally {
+        addUserBtn.disabled = false;
+      }
+    });
+
+    document.getElementById("users-body")?.addEventListener("click", async (e) => {
+      const btn = (e.target as HTMLElement).closest(".toggle-admin-btn") as HTMLButtonElement | null;
+      if (!btn) return;
+      const userId = btn.dataset.userId;
+      const makeAdmin = btn.dataset.isAdmin !== "true";
+
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/settings/users/${userId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_admin: makeAdmin }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          let detail = "Could not update user";
+          try { detail = JSON.parse(text).detail ?? detail; } catch {}
+          throw new Error(detail);
+        }
+
+        const row = btn.closest("tr");
+        const badge = row?.querySelector("[data-role-badge]");
+        if (badge) {
+          badge.textContent = makeAdmin ? "Admin" : "User";
+          badge.className = [
+            "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium",
+            makeAdmin
+              ? "bg-accent/10 text-accent dark:bg-accent-light/10 dark:text-accent-light"
+              : "bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400",
+          ].join(" ");
+        }
+        btn.textContent = makeAdmin ? "Remove admin" : "Make admin";
+        btn.dataset.isAdmin = String(makeAdmin);
+      } catch (err: any) {
+        alert(err.message ?? "Could not update user");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ── Delete user ──
+    const deleteUserModal = document.getElementById("delete-user-modal")!;
+    const deleteUserName = document.getElementById("delete-user-name")!;
+    const deleteUserConfirmBtn = document.getElementById("delete-user-confirm-btn") as HTMLButtonElement;
+    let pendingDeleteUserId: string | null = null;
+
+    function closeDeleteUserModal() {
+      deleteUserModal.classList.add("hidden");
+      pendingDeleteUserId = null;
+    }
+
+    usersBody.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest(".delete-user-btn") as HTMLButtonElement | null;
+      if (!btn) return;
+      pendingDeleteUserId = btn.dataset.userId ?? null;
+      deleteUserName.textContent = btn.dataset.username ?? "";
+      deleteUserModal.classList.remove("hidden");
+    });
+
+    document.getElementById("delete-user-cancel-btn")?.addEventListener("click", closeDeleteUserModal);
+    document.getElementById("delete-user-modal-backdrop")?.addEventListener("click", closeDeleteUserModal);
+
+    deleteUserConfirmBtn?.addEventListener("click", async () => {
+      if (!pendingDeleteUserId) return;
+      const userId = pendingDeleteUserId;
+
+      deleteUserConfirmBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/settings/users/${userId}`, { method: "DELETE" });
+        if (!res.ok) {
+          const text = await res.text();
+          let detail = "Could not delete user";
+          try { detail = JSON.parse(text).detail ?? detail; } catch {}
+          throw new Error(detail);
+        }
+        document.querySelector(`[data-user-row="${userId}"]`)?.remove();
+        closeDeleteUserModal();
+      } catch (err: any) {
+        alert(err.message ?? "Could not delete user");
+        closeDeleteUserModal();
+      } finally {
+        deleteUserConfirmBtn.disabled = false;
+      }
+    });
+  </script>
+</Layout>

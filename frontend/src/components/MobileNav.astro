@@ -1,0 +1,27 @@
+---
+interface Props {
+  activePage?: "dashboard" | "events" | "calendar" | "settings";
+}
+const { activePage } = Astro.props;
+const links = [
+  { page: "dashboard", href: "/", label: "Dashboard", path: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" },
+  { page: "events", href: "/events", label: "Events", path: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" },
+  { page: "calendar", href: "/calendar", label: "Calendar", path: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" },
+];
+---
+
+<nav id="mobile-nav" aria-label="Main navigation" class="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t bg-surface dark:bg-surface-dark pb-[env(safe-area-inset-bottom)]">
+  {links.map(({ page, href, label, path }) => (
+    <a href={href} aria-current={activePage === page ? "page" : undefined} class:list={[
+      "flex flex-1 min-w-0 flex-col items-center justify-center gap-1 py-3 text-[11px] font-medium transition-colors",
+      activePage === page
+        ? "text-accent dark:text-accent-light bg-accent/10 dark:bg-accent-light/5"
+        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white",
+    ]}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d={path} />
+      </svg>
+      {label}
+    </a>
+  ))}
+</nav>

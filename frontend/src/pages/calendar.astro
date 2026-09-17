@@ -1,0 +1,273 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { apiJson } from "../lib/api";
+
+const cookies = Astro.request.headers.get("cookie") ?? "";
+
+type EventType = { id: number; name: string; is_default: boolean };
+type EventOut = {
+  id: number;
+  event_type: EventType;
+  month: number;
+  day: number;
+  year: number | null;
+  year_known: boolean;
+  notes: string | null;
+  days_until: number;
+};
+type Person = { id: number; name: string; image_url: string | null; events: EventOut[] };
+
+// Fired concurrently - see the same comment in events.astro.
+const [meResult, peopleResult] = await Promise.allSettled([
+  apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }),
+  apiJson<Person[]>("/people?sort=name", { cookies }),
+]);
+
+if (meResult.status === "rejected") {
+  Astro.cookies.delete("candlr_token", { path: "/" });
+  return Astro.redirect("/login");
+}
+const { username, is_admin } = meResult.value;
+const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
+---
+
+<Layout title="Calendar" user={{ username, is_admin }} activePage="calendar">
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+    <div class="mb-6">
+      <h1 class="text-lg font-semibold tracking-tight">Calendar</h1>
+    </div>
+
+    <div class="card p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-4">
+        <button type="button" id="cal-prev-btn" class="btn-ghost p-2" aria-label="Previous month">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div class="flex items-center gap-3">
+          <div id="cal-month-label" class="text-base font-semibold tabular-nums"></div>
+          <button type="button" id="cal-today-btn" class="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">
+            Today
+          </button>
+        </div>
+        <button type="button" id="cal-next-btn" class="btn-ghost p-2" aria-label="Next month">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1 mb-1">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <div class="text-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500 py-1">{d}</div>
+        ))}
+      </div>
+
+      <div id="cal-grid" class="grid grid-cols-7 gap-1"></div>
+    </div>
+  </main>
+
+  <!-- "Who's on this day" popup -->
+  <div id="day-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="day-backdrop absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="day-modal-title" class="text-base font-semibold"></h2>
+        <button type="button" class="day-close btn-ghost p-1.5" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="day-modal-list" class="space-y-1"></div>
+    </div>
+  </div>
+
+  <script define:vars={{ initialPeople: people }}>
+    window.__CANDLR_PEOPLE__ = initialPeople;
+  </script>
+  <script>
+    import { avatarHtml, escapeHtml } from "../lib/avatar.js";
+    import { MONTH_NAMES, ageLabel } from "../lib/dates.js";
+
+    const people = window.__CANDLR_PEOPLE__;
+
+    // "month-day" -> [{ person, event }], deliberately ignoring year: a
+    // birthday or anniversary lands on the same calendar cell every time
+    // that month/day comes around, whichever year is currently in view.
+    const eventsByDay = new Map();
+    for (const person of people) {
+      for (const event of person.events) {
+        const key = `${event.month}-${event.day}`;
+        if (!eventsByDay.has(key)) eventsByDay.set(key, []);
+        eventsByDay.get(key).push({ person, event });
+      }
+    }
+
+    const today = new Date();
+    let viewYear = today.getFullYear();
+    let viewMonth = today.getMonth() + 1; // 1-12
+
+    const monthLabel = document.getElementById("cal-month-label");
+    const grid = document.getElementById("cal-grid");
+
+    function daysInMonth(year, month) {
+      return new Date(year, month, 0).getDate();
+    }
+
+    // 0 = Monday .. 6 = Sunday, matching the Mon-Sun header row above.
+    function mondayIndex(year, month, day) {
+      const jsDay = new Date(year, month - 1, day).getDay();
+      return (jsDay + 6) % 7;
+    }
+
+    function renderCalendar() {
+      monthLabel.textContent = `${MONTH_NAMES[viewMonth - 1]} ${viewYear}`;
+      grid.innerHTML = "";
+
+      const daysThisMonth = daysInMonth(viewYear, viewMonth);
+      const leading = mondayIndex(viewYear, viewMonth, 1);
+
+      let prevMonth = viewMonth - 1;
+      let prevYear = viewYear;
+      if (prevMonth < 1) {
+        prevMonth = 12;
+        prevYear -= 1;
+      }
+      const daysPrevMonth = daysInMonth(prevYear, prevMonth);
+
+      let nextMonth = viewMonth + 1;
+      let nextYear = viewYear;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear += 1;
+      }
+
+      const totalCells = Math.ceil((leading + daysThisMonth) / 7) * 7;
+
+      for (let i = 0; i < totalCells; i++) {
+        let cellMonth = viewMonth;
+        let cellDay;
+        let outside = false;
+
+        if (i < leading) {
+          cellMonth = prevMonth;
+          cellDay = daysPrevMonth - leading + i + 1;
+          outside = true;
+        } else if (i >= leading + daysThisMonth) {
+          cellMonth = nextMonth;
+          cellDay = i - leading - daysThisMonth + 1;
+          outside = true;
+        } else {
+          cellDay = i - leading + 1;
+        }
+
+        const isToday =
+          !outside &&
+          viewYear === today.getFullYear() &&
+          viewMonth === today.getMonth() + 1 &&
+          cellDay === today.getDate();
+        const entries = eventsByDay.get(`${cellMonth}-${cellDay}`) || [];
+
+        const cell = document.createElement(entries.length ? "button" : "div");
+        if (entries.length) cell.type = "button";
+        cell.className = [
+          "aspect-square rounded-lg p-1 sm:p-1.5 flex flex-col items-start gap-0.5 text-left border transition-colors",
+          outside ? "opacity-40" : "",
+          isToday ? "border-accent dark:border-accent-light bg-accent/10 dark:bg-accent-light/10" : "border-transparent",
+          entries.length ? "hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer" : "cursor-default",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const dayNumClass = isToday
+          ? "font-semibold text-accent dark:text-accent-light"
+          : "text-zinc-500 dark:text-zinc-400";
+        let html = `<span class="text-[11px] sm:text-xs ${dayNumClass}">${cellDay}</span>`;
+
+        if (entries.length === 1) {
+          html += `<div class="mt-1 sm:mt-1.5">${avatarHtml(entries[0].person, "w-4 h-4 sm:w-5 sm:h-5 text-[8px]")}</div>`;
+        } else if (entries.length > 1) {
+          html += `<div class="mt-1 sm:mt-1.5 grid grid-cols-2 gap-0.5 w-full max-w-[34px] sm:max-w-[42px] items-center">
+            ${avatarHtml(entries[0].person, "w-full aspect-square min-w-0 text-[8px]")}
+            <div class="w-full aspect-square min-w-0 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+              <span class="text-[7px] sm:text-[8px] font-medium text-zinc-700 dark:text-zinc-200">+${entries.length - 1}</span>
+            </div>
+          </div>`;
+        }
+
+        cell.innerHTML = html;
+        if (entries.length) {
+          cell.setAttribute("aria-label", `${MONTH_NAMES[cellMonth - 1]} ${cellDay}: ${entries.length} ${entries.length === 1 ? "event" : "events"}`);
+          cell.addEventListener("click", () => openDayModal(cellMonth, cellDay, entries));
+        }
+        grid.appendChild(cell);
+      }
+    }
+
+    // ── Day popup ──
+    const dayModal = document.getElementById("day-modal");
+    const dayModalTitle = document.getElementById("day-modal-title");
+    const dayModalList = document.getElementById("day-modal-list");
+
+    function openDayModal(month, day, entries) {
+      dayModalTitle.textContent = `${MONTH_NAMES[month - 1]} ${day}`;
+      dayModalList.innerHTML = "";
+      for (const { person, event } of entries) {
+        const row = document.createElement("a");
+        row.href = `/events?open=${person.id}`;
+        row.className =
+          "flex items-center gap-3 p-2.5 rounded-lg hover:bg-stone-50 dark:hover:bg-white/5 transition-colors";
+        const age = ageLabel(event, true);
+        row.innerHTML = `
+          ${avatarHtml(person, "w-9 h-9 text-xs")}
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium truncate">${escapeHtml(person.name)}</div>
+            <div class="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+              ${escapeHtml(event.event_type.name)}${age ? ` &middot; ${escapeHtml(age)}` : ""}
+            </div>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-300 dark:text-zinc-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        `;
+        dayModalList.appendChild(row);
+      }
+      dayModal.classList.remove("hidden");
+    }
+
+    function closeDayModal() {
+      dayModal.classList.add("hidden");
+    }
+
+    dayModal.querySelectorAll(".day-close").forEach((el) => el.addEventListener("click", closeDayModal));
+    dayModal.querySelector(".day-backdrop").addEventListener("click", closeDayModal);
+
+    // ── Navigation ──
+    document.getElementById("cal-prev-btn").addEventListener("click", () => {
+      viewMonth -= 1;
+      if (viewMonth < 1) {
+        viewMonth = 12;
+        viewYear -= 1;
+      }
+      renderCalendar();
+    });
+
+    document.getElementById("cal-next-btn").addEventListener("click", () => {
+      viewMonth += 1;
+      if (viewMonth > 12) {
+        viewMonth = 1;
+        viewYear += 1;
+      }
+      renderCalendar();
+    });
+
+    document.getElementById("cal-today-btn").addEventListener("click", () => {
+      viewYear = today.getFullYear();
+      viewMonth = today.getMonth() + 1;
+      renderCalendar();
+    });
+
+    renderCalendar();
+  </script>
+</Layout>

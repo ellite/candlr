@@ -1,0 +1,144 @@
+---
+import PasswordInput from "./PasswordInput.astro";
+interface Props { hasPassword: boolean }
+const { hasPassword } = Astro.props;
+---
+<section class="card p-6" id="two-factor-settings">
+  <h2 class="text-sm font-medium mb-1">Two-factor authentication</h2>
+  {hasPassword ? (
+    <>
+      <p id="mfa-status" class="text-sm text-zinc-500 dark:text-zinc-400 mb-4" aria-live="polite">Loading security settings…</p>
+      <p id="mfa-error" role="alert" class="hidden text-sm text-red-600 dark:text-red-400 mb-4"></p>
+      <form id="mfa-form" class="hidden space-y-4 max-w-sm">
+        <div>
+          <label class="label" for="mfa-password">Current password</label>
+          <PasswordInput id="mfa-password" autocomplete="current-password" required />
+        </div>
+        <div id="mfa-code-field" class="hidden">
+          <label class="label" for="mfa-code">Authenticator or recovery code</label>
+          <input class="input" id="mfa-code" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" maxlength="64" />
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="mfa-setup" type="submit" class="btn-secondary">Set up 2FA</button>
+          <button id="mfa-disable" type="button" class="btn-secondary hidden">Turn off 2FA</button>
+          <button id="mfa-regenerate" type="button" class="btn-secondary hidden">Replace recovery codes</button>
+        </div>
+      </form>
+      <form id="mfa-enroll" class="hidden mt-4 space-y-4 max-w-sm">
+        <p class="text-sm">Scan this QR code with your authenticator app, then enter its code to finish setup. Setup expires in 10 minutes.</p>
+        <img id="mfa-qr" alt="Scan this QR code with your authenticator app" width="240" height="240" class="rounded-lg" />
+        <details class="text-sm"><summary class="cursor-pointer">Enter the key manually instead</summary><code id="mfa-secret" class="block break-all mt-2 select-all"></code></details>
+        <div>
+          <label class="label" for="mfa-enroll-code">Six-digit code</label>
+          <input id="mfa-enroll-code" class="input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+        </div>
+        <button type="submit" class="btn-primary">Enable 2FA</button>
+        <button id="mfa-cancel" type="button" class="btn-secondary">Cancel</button>
+      </form>
+      <div id="mfa-recovery" class="hidden mt-4 space-y-3">
+        <p class="text-sm font-medium">Save your recovery codes</p>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">Each code can be used once if you lose access to your authenticator. These codes are only shown now. Store them somewhere safe.</p>
+        <pre id="mfa-recovery-list" class="text-sm whitespace-pre-wrap select-all"></pre>
+        <button id="mfa-download" type="button" class="btn-secondary">Download codes</button>
+        <button id="mfa-done" type="button" class="btn-primary">I saved my codes</button>
+      </div>
+    </>
+  ) : (
+    <p class="text-sm text-zinc-500 dark:text-zinc-400">You sign in through SSO. Manage two-factor authentication in your identity provider's account settings.</p>
+  )}
+</section>
+
+<script>
+  const status = document.getElementById("mfa-status");
+  if (status) {
+    const el = (id: string) => document.getElementById(id)!;
+    const input = (id: string) => el(id) as HTMLInputElement;
+    let enabled = false;
+    let codes: string[] = [];
+    let busy = false;
+    const show = (id: string, visible: boolean) => el(id).classList.toggle("hidden", !visible);
+    async function api(path = "", body?: object) {
+      const response = await fetch(`/api/auth/2fa${path}`, body ? {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      } : { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not update two-factor authentication");
+      return data;
+    }
+    async function refresh() {
+      const data = await api();
+      enabled = data.enabled;
+      status!.textContent = enabled ? `Enabled. ${data.recovery_codes_remaining} recovery codes remaining.` : "Add an authenticator code to protect your sign-in.";
+      show("mfa-form", true);
+      show("mfa-code-field", enabled);
+      show("mfa-setup", !enabled);
+      show("mfa-disable", enabled);
+      show("mfa-regenerate", enabled);
+    }
+    async function action(callback: () => Promise<void>) {
+      if (busy) return;
+      busy = true;
+      show("mfa-error", false);
+      el("two-factor-settings").querySelectorAll("button").forEach(button => button.disabled = true);
+      try { await callback(); }
+      catch (err) {
+        el("mfa-error").textContent = err instanceof Error ? err.message : "Something went wrong";
+        show("mfa-error", true);
+      } finally {
+        busy = false;
+        el("two-factor-settings").querySelectorAll("button").forEach(button => button.disabled = false);
+      }
+    }
+    function showCodes(values: string[]) {
+      codes = values;
+      el("mfa-recovery-list").textContent = values.join("\n");
+      show("mfa-recovery", true);
+      show("mfa-form", false);
+      input("mfa-password").value = input("mfa-code").value = "";
+      status!.textContent = "Two-factor authentication is enabled.";
+    }
+    function clearSetup() {
+      (el("mfa-qr") as HTMLImageElement).removeAttribute("src");
+      el("mfa-secret").textContent = "";
+      input("mfa-enroll-code").value = "";
+      show("mfa-enroll", false);
+    }
+    el("mfa-form").addEventListener("submit", event => {
+      event.preventDefault();
+      if (enabled) return;
+      void action(async () => {
+        const data = await api("/setup", { password: input("mfa-password").value });
+        input("mfa-password").value = "";
+        (el("mfa-qr") as HTMLImageElement).src = data.qr_code;
+        el("mfa-secret").textContent = data.secret;
+        show("mfa-form", false); show("mfa-enroll", true);
+        input("mfa-enroll-code").focus();
+      });
+    });
+    el("mfa-enroll").addEventListener("submit", event => {
+      event.preventDefault();
+      void action(async () => {
+        const data = await api("/enable", { code: input("mfa-enroll-code").value });
+        clearSetup(); showCodes(data.recovery_codes);
+      });
+    });
+    el("mfa-cancel").addEventListener("click", () => { clearSetup(); show("mfa-form", true); });
+    for (const [id, path] of [["mfa-disable", "/disable"], ["mfa-regenerate", "/recovery-codes"]]) {
+      el(id).addEventListener("click", () => void action(async () => {
+        const data = await api(path, { password: input("mfa-password").value, code: input("mfa-code").value });
+        input("mfa-password").value = input("mfa-code").value = "";
+        if (data.recovery_codes) showCodes(data.recovery_codes);
+        else await refresh();
+      }));
+    }
+    el("mfa-download").addEventListener("click", () => {
+      const url = URL.createObjectURL(new Blob(["Candlr recovery codes (each code works once)\n\n" + codes.join("\n")], { type: "text/plain" }));
+      const link = document.createElement("a"); link.href = url; link.download = "candlr-recovery-codes.txt"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    el("mfa-done").addEventListener("click", () => void action(async () => {
+      codes = []; el("mfa-recovery-list").textContent = ""; show("mfa-recovery", false); await refresh();
+    }));
+    void action(refresh);
+  }
+</script>

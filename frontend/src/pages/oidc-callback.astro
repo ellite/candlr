@@ -1,0 +1,57 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { apiFetch } from "../lib/api";
+
+// This page is the OIDC redirect_uri - the provider sends the browser here
+// with ?code=...&state=... after the user authenticates.
+
+let error = "";
+
+const urlError = Astro.url.searchParams.get("error");
+const errorDescription = Astro.url.searchParams.get("error_description");
+if (urlError) {
+  error = errorDescription || urlError;
+}
+
+if (!error) {
+  const code = Astro.url.searchParams.get("code") ?? "";
+  const state = Astro.url.searchParams.get("state") ?? "";
+  const storedState = Astro.cookies.get("oidc_state")?.value ?? "";
+
+  if (!code) {
+    error = "No authorization code returned by provider.";
+  } else if (!storedState || storedState !== state) {
+    error = "Invalid state parameter. Please try logging in again.";
+  } else {
+    Astro.cookies.delete("oidc_state", { path: "/" });
+    const storedNext = Astro.cookies.get("oidc_next")?.value ?? "/";
+    Astro.cookies.delete("oidc_next", { path: "/" });
+
+    try {
+      const res = await apiFetch("/oidc/exchange", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "SSO login failed");
+      }
+      const setCookie = res.headers.get("set-cookie");
+      if (setCookie) {
+        Astro.response.headers.append("set-cookie", setCookie);
+      }
+      const data = await res.json();
+      return Astro.redirect(data.requires_2fa ? `/two-factor?next=${encodeURIComponent(storedNext)}` : storedNext);
+    } catch (e: unknown) {
+      error = e instanceof Error ? e.message : "SSO login failed";
+    }
+  }
+}
+---
+
+<Layout title="Signing in" fullPage>
+  <div class="card p-6 text-center max-w-sm space-y-4">
+    <p class="text-red-600 dark:text-red-400 text-sm">{error}</p>
+    <a href="/login" class="btn-primary inline-block">Back to login</a>
+  </div>
+</Layout>

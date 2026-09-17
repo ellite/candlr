@@ -1,0 +1,120 @@
+---
+import Layout from "../layouts/Layout.astro";
+import DashboardEvent from "../components/DashboardEvent.astro";
+import PersonDetailModal from "../components/PersonDetailModal.astro";
+import { apiJson } from "../lib/api";
+import { dashboardGroups } from "../lib/dashboard";
+import type { Person } from "../lib/events";
+
+const cookies = Astro.request.headers.get("cookie") ?? "";
+const [meResult, peopleResult] = await Promise.allSettled([
+  apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }),
+  apiJson<Person[]>("/people?sort=upcoming", { cookies }),
+]);
+if (meResult.status === "rejected") {
+  Astro.cookies.delete("candlr_token", { path: "/" });
+  return Astro.redirect("/login");
+}
+// Keep links saved before the card grid moved working.
+if (Astro.url.searchParams.has("open")) {
+  return Astro.redirect(`/events?open=${encodeURIComponent(Astro.url.searchParams.get("open") ?? "")}`);
+}
+const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
+const { today, thisWeek, later, nextUp } = dashboardGroups(people);
+const upcomingGroups = [
+  { title: "Next 7 days", entries: thisWeek },
+  { title: "Later", entries: later },
+].filter(({ entries }) => entries.length);
+---
+
+<Layout title="Dashboard" user={{ username: meResult.value.username, is_admin: meResult.value.is_admin }} activePage="dashboard">
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div class="flex items-center justify-between gap-4">
+      <h1 class="text-lg font-semibold tracking-tight">At a glance</h1>
+      <a href="/events?add=1" class="btn-primary flex-shrink-0">+ Add</a>
+    </div>
+
+    {peopleResult.status === "rejected" ? (
+      <div class="card p-6 text-sm" role="alert">
+        <p>Could not load your events.</p>
+        <a href="/" class="inline-block mt-3 underline">Try again</a>
+      </div>
+    ) : (
+      <>
+        <section aria-labelledby="today-heading">
+          <h2 id="today-heading" class="text-base font-semibold mb-3">Today</h2>
+          {today.length ? (
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {today.map((entry) => <DashboardEvent entry={entry} prominent />)}
+            </div>
+          ) : (
+            <div class="card p-5 text-sm text-zinc-500 dark:text-zinc-400">No events today.</div>
+          )}
+        </section>
+
+        <section aria-labelledby="upcoming-heading">
+          <div class="flex items-baseline justify-between gap-3 mb-4">
+            <div>
+              <h2 id="upcoming-heading" class="text-base font-semibold">Upcoming</h2>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Over the next 30 days</p>
+            </div>
+            <a href="/events" class="text-xs text-zinc-500 dark:text-zinc-400 hover:underline flex-shrink-0">View all events</a>
+          </div>
+          {upcomingGroups.length ? (
+            <div class="space-y-5">
+              {upcomingGroups.map(({ title, entries }) => (
+                <div>
+                  <h3 class="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">{title}</h3>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {entries.map((entry) => <DashboardEvent entry={entry} />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div class="card p-5 text-sm text-zinc-500 dark:text-zinc-400">
+              {people.length ? "No events in the next 30 days." : (
+                <>
+                  <p>No dates yet. Add the first one to get started.</p>
+                  <a href="/events?add=1" class="btn-primary inline-block mt-4">+ Add</a>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+
+        {nextUp.length > 0 && (
+          <section aria-labelledby="next-heading">
+            <h2 id="next-heading" class="text-base font-semibold mb-3">Next up</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {nextUp.map((entry) => <DashboardEvent entry={entry} />)}
+            </div>
+          </section>
+        )}
+      </>
+    )}
+  </main>
+
+  <PersonDetailModal />
+
+  <script>
+    import { createPersonDetail } from "../lib/personDetail.js";
+
+    const personDetail = createPersonDetail({
+      onEditCard: (person) => (location.href = `/events?edit=${person.id}`),
+      onEditEvent: (person, event) => (location.href = `/events?edit=${person.id}&event=${event.id}`),
+      onAddEvent: (personId) => (location.href = `/events?add-event=${personId}`),
+      onDeleteEvent: () => location.reload(),
+      onDeletePerson: () => location.reload(),
+    });
+
+    document.querySelectorAll("[data-person-id]").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        // Let modified/middle clicks (new tab, etc.) behave like a normal link.
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        personDetail.open(Number(link.dataset.personId));
+      });
+    });
+  </script>
+</Layout>

@@ -1,0 +1,42 @@
+.git/
+.github/
+*.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+copilot-instructions.md
+design/
+docs/
+
+.claude/
+.codex/
+.agents/
+.cursor/
+.windsurf/
+
+# Never send local configuration or credentials to the Docker daemon. Keep
+# this broad: Vite recognizes several .env.* variants and can bake their
+# contents into frontend assets during a build.
+**/.env*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/secrets/
+
+data/
+backend/data/
+backend/.venv/
+backend/tests/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.astro/
+frontend/tests/

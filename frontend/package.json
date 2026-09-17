@@ -1,0 +1,25 @@
+{
+  "name": "candlr-frontend",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "dev": "astro dev --port 4258",
+    "build": "astro build",
+    "preview": "astro preview --port 4258",
+    "start": "node dist/server/entry.mjs",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.6",
+    "@tailwindcss/vite": "^4.2.2",
+    "astro": "^7.3.3",
+    "dompurify": "^3.2.0",
+    "marked": "^15.0.0",
+    "tailwindcss": "^4.2.2"
+  }
+}

@@ -1,0 +1,29 @@
+---
+import { initials } from "../lib/avatar.js";
+import { MONTH_NAMES } from "../lib/dates.js";
+import { milestone, type DashboardEntry } from "../lib/dashboard";
+
+interface Props { entry: DashboardEntry; prominent?: boolean }
+const { entry: { person, event }, prominent = false } = Astro.props;
+const occasion = milestone(event);
+const due = event.days_until === 0 ? "Today" : event.days_until === 1 ? "Tomorrow" : `In ${event.days_until} days`;
+---
+
+<a href={`/events?open=${person.id}`} data-person-id={person.id} class:list={[
+  "card flex items-center gap-3 min-w-0 p-4 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors",
+  prominent && "sm:p-5",
+]}>
+  {person.image_url ? (
+    <img src={`/api${person.image_url}`} alt="" class="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+  ) : (
+    <div class="w-12 h-12 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center flex-shrink-0 text-sm font-medium">{initials(person.name)}</div>
+  )}
+  <div class="min-w-0 flex-1">
+    <p class="font-medium text-sm break-words">{person.name}</p>
+    <p class="text-xs text-zinc-500 dark:text-zinc-400 break-words mt-0.5">{event.event_type.name}{occasion && ` · ${occasion}`}</p>
+    <p class="text-xs mt-2 text-zinc-500 dark:text-zinc-400">
+      <span class:list={[prominent && "text-accent dark:text-accent-light font-medium"]}>{due}</span>
+      {event.days_until > 0 && ` · ${MONTH_NAMES[event.month - 1]} ${event.day}`}
+    </p>
+  </div>
+</a>

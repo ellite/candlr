@@ -1,0 +1,27 @@
+---
+interface Props {
+  size?: "sm" | "md" | "lg";
+  iconOnly?: boolean;
+  class?: string;
+}
+const { size = "md", iconOnly = false, class: className = "" } = Astro.props;
+const sizes = {
+  sm: { icon: "w-7 h-9", text: "w-20 h-7" },
+  md: { icon: "w-9 h-12", text: "w-28 h-9" },
+  lg: { icon: "w-12 h-16", text: "w-36 h-12" },
+};
+const { icon, text } = sizes[size];
+---
+
+<div class={`inline-flex items-center gap-1.5 ${className}`} role="img" aria-label="Candlr">
+  <img src="/branding/symbol-v2.png" alt="" class={`${icon} object-contain flex-shrink-0`} />
+  {!iconOnly && <span aria-hidden="true" class={`logo-wordmark ${text}`} />}
+</div>
+
+<style>
+  .logo-wordmark {
+    display: inline-block;
+    background-color: currentColor;
+    mask: url('/branding/wordmark-v2.png') center / contain no-repeat;
+  }
+</style>

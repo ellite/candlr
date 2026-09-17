@@ -1,0 +1,695 @@
+---
+import Layout from "../layouts/Layout.astro";
+import PersonDetailModal from "../components/PersonDetailModal.astro";
+import { apiJson } from "../lib/api";
+
+const cookies = Astro.request.headers.get("cookie") ?? "";
+
+import type { EventType, Person } from "../lib/events";
+
+// Fired concurrently rather than awaited one at a time - these three don't
+// depend on each other's results, only on the shared cookie, so a serial
+// waterfall here would just be adding up round-trip latency for no reason.
+const [meResult, eventTypesResult, peopleResult] = await Promise.allSettled([
+  apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }),
+  apiJson<EventType[]>("/event-types", { cookies }),
+  apiJson<Person[]>("/people?sort=upcoming", { cookies }),
+]);
+
+if (meResult.status === "rejected") {
+  Astro.cookies.delete("candlr_token", { path: "/" });
+  return Astro.redirect("/login");
+}
+const { username, is_admin } = meResult.value;
+const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.value : [];
+const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
+---
+
+<Layout title="Events" user={{ username, is_admin }} activePage="events">
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div class="flex items-center justify-between gap-4 mb-6 flex-wrap">
+      <div class="relative flex items-center justify-end gap-2 w-full min-w-0">
+        <div class="flex justify-end flex-1 min-w-0">
+          <button id="search-toggle-btn" type="button" class="btn-secondary flex items-center justify-center gap-2 transition-opacity duration-200 motion-reduce:transition-none" aria-label="Search" aria-expanded="false" aria-controls="search-field">
+            <svg class="w-4 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path stroke-linecap="round" d="m16 16 4 4" />
+            </svg>
+            <span class="hidden sm:inline">Search</span>
+          </button>
+          <div id="search-field" class="absolute inset-0 z-10 flex items-center gap-1 w-full min-w-0" inert>
+            <label for="search-input" class="sr-only">Search by name</label>
+            <input id="search-input" class="input min-w-0 pr-12 [&::-webkit-search-cancel-button]:appearance-none" type="search" placeholder="Search by name..." autocomplete="off" aria-controls="people-grid" />
+            <button id="clear-search-btn" type="button" class="btn-ghost absolute right-1 top-1/2 -translate-y-1/2" aria-label="Clear and close search">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" d="m6 6 12 12M6 18 18 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="dashboard-actions" class="flex items-center justify-end gap-2 flex-shrink-0 transition-opacity duration-200 motion-reduce:transition-none">
+        <select id="sort-select" class="select w-36">
+          <option value="upcoming">Upcoming</option>
+          <option value="name">A - Z</option>
+        </select>
+        <button id="add-date-btn" class="btn-primary flex-shrink-0">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <p id="search-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <div id="empty-state" class="hidden card p-10 text-center">
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">No dates yet. Add the first one to get started.</p>
+      <button class="btn-primary" id="empty-add-date-btn">+ Add</button>
+    </div>
+
+    <div id="no-results" class="hidden card p-10 text-center">
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">No matching names. Try another search or clear it to see all cards.</p>
+    </div>
+
+    <div id="people-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"></div>
+  </main>
+
+  <!-- Add-a-date / add-another-event form -->
+  <div id="form-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="form-backdrop absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full min-w-0 max-w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[92dvh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="form-title" class="text-base font-semibold">Add a date</h2>
+        <button type="button" class="form-close btn-ghost p-1.5" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="form-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
+
+      <div class="space-y-4">
+        <div id="form-name-field">
+          <label class="label" for="form-name">Name</label>
+          <input id="form-name" class="input" type="text" placeholder="Joanna" maxlength="100" />
+        </div>
+
+        <div id="form-date-picker" class="hidden">
+          <p class="label">Dates on this card</p>
+          <div id="form-date-buttons" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div>
+          <label class="label" for="form-event-type">Event type</label>
+          <select id="form-event-type" class="select">
+            {eventTypes.map((et) => <option value={et.id}>{et.name}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Date</label>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <select id="form-month" class="select">
+              {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                <option value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <select id="form-day" class="select">
+              {Array.from({ length: 31 }).map((_, i) => <option value={i + 1}>{i + 1}</option>)}
+            </select>
+          </div>
+          <input id="form-year" class="input" type="number" placeholder="Year" min="1" max="2100" />
+          <label class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-2 cursor-pointer">
+            <input type="checkbox" id="form-year-unknown" />
+            I don't know (or don't want to enter) the year
+          </label>
+        </div>
+
+        <div>
+          <label class="label" for="form-notes">Notes</label>
+          <textarea id="form-notes" class="input" rows="3" placeholder="Anything worth remembering. Markdown supported."></textarea>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+          <input type="checkbox" id="form-notify" checked />
+          Notify me about this date
+        </label>
+
+        <div id="form-image-fields" class="pt-3 border-t">
+          <label class="label">Photo (optional)</label>
+          <div id="form-image-empty" class="flex gap-2">
+            <label class="btn-secondary text-sm cursor-pointer flex-shrink-0 flex items-center">
+              Upload
+              <input id="form-image-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" />
+            </label>
+            <input id="form-image-url" class="input min-w-0 flex-1" type="text" placeholder="...or paste an image URL" />
+            <button type="button" id="form-image-url-btn" class="btn-secondary flex-shrink-0 text-sm">Use</button>
+          </div>
+          <div id="form-image-preview" class="hidden flex items-center gap-3 mt-3">
+            <img id="form-image-preview-img" class="w-12 h-12 rounded-full object-cover" alt="" />
+            <button type="button" id="form-image-edit-btn" class="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">Crop</button>
+            <button type="button" id="form-image-remove-btn" class="text-xs text-red-600 dark:text-red-400 hover:underline">Remove</button>
+          </div>
+          <div id="form-image-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs px-3 py-2 rounded-lg mt-2"></div>
+        </div>
+
+        <button id="form-submit-btn" class="btn-primary w-full mt-1">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Person detail popup + delete confirmation - shared with the dashboard -->
+  <PersonDetailModal />
+
+  <!-- Photo crop/zoom editor, shared by the add-date form and the detail panel -->
+  <div id="image-editor-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div data-editor-backdrop class="absolute inset-0 bg-black/60"></div>
+    <div class="relative card p-6 w-full max-w-sm">
+      <h2 class="text-base font-semibold mb-4">Adjust photo</h2>
+      <div class="flex justify-center mb-4">
+        <canvas
+          data-editor-canvas
+          width="280"
+          height="280"
+          class="max-w-full h-auto rounded-full cursor-move touch-none bg-stone-100 dark:bg-white/10"
+        ></canvas>
+      </div>
+      <div class="flex items-center gap-3 mb-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="M21 21l-4.3-4.3" />
+        </svg>
+        <input data-editor-zoom type="range" min="100" max="300" value="100" class="flex-1" />
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="M21 21l-4.3-4.3" /><path stroke-linecap="round" d="M11 8v6M8 11h6" />
+        </svg>
+      </div>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Drag the photo to reposition it, use the slider to zoom.</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" data-editor-cancel class="btn-secondary">Cancel</button>
+        <button type="button" data-editor-confirm class="btn-primary">Use photo</button>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ initialPeople: people, eventTypes }}>
+    window.__CANDLR_EVENT_TYPES__ = eventTypes;
+    window.__CANDLR_INITIAL_PEOPLE__ = initialPeople;
+  </script>
+  <script>
+    import { enhanceSelects } from "../lib/customSelect.js";
+    import { initImageEditor } from "../lib/imageEditor.js";
+    import { createPersonDetail } from "../lib/personDetail.js";
+    import { escapeHtml, avatarHtml } from "../lib/avatar.js";
+    import { ageLabel, dueLabel } from "../lib/dates.js";
+
+    enhanceSelects();
+    const openImageEditor = initImageEditor(document.getElementById("image-editor-modal"));
+
+    async function fetchImagePreview(url) {
+      const res = await fetch("/api/images/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Could not fetch that image");
+      }
+      return res.blob();
+    }
+
+    const eventTypes = window.__CANDLR_EVENT_TYPES__;
+    let people = window.__CANDLR_INITIAL_PEOPLE__;
+    let currentSort = "upcoming";
+
+    const grid = document.getElementById("people-grid");
+    const emptyState = document.getElementById("empty-state");
+    const sortSelect = document.getElementById("sort-select");
+    const searchInput = document.getElementById("search-input");
+    const searchToggleBtn = document.getElementById("search-toggle-btn");
+    const searchField = document.getElementById("search-field");
+    const dashboardActions = document.getElementById("dashboard-actions");
+    const clearSearchBtn = document.getElementById("clear-search-btn");
+    const searchStatus = document.getElementById("search-status");
+    const noResults = document.getElementById("no-results");
+
+    function soonestEvent(person) {
+      return person.events.reduce((a, b) => (b.days_until < a.days_until ? b : a), person.events[0]);
+    }
+
+    // ── Card grid ──
+    function renderCards() {
+      const query = searchInput.value.trim().toLocaleLowerCase();
+      const visiblePeople = people.filter((person) => person.name.toLocaleLowerCase().includes(query));
+      grid.innerHTML = "";
+      emptyState.classList.toggle("hidden", people.length > 0);
+      grid.classList.toggle("hidden", visiblePeople.length === 0);
+      noResults.classList.toggle("hidden", people.length === 0 || visiblePeople.length > 0);
+      searchStatus.textContent = query ? `${visiblePeople.length} matching ${visiblePeople.length === 1 ? "card" : "cards"}.` : "";
+
+      for (const person of visiblePeople) {
+        const soonest = soonestEvent(person);
+        const age = ageLabel(soonest, true);
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "card p-4 flex flex-col items-center text-center gap-2 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors";
+        card.dataset.personId = person.id;
+        card.innerHTML = `
+          ${avatarHtml(person, "w-16 h-16 text-lg")}
+          <div class="text-sm font-medium truncate w-full">${escapeHtml(person.name)}</div>
+          <div class="text-xs text-zinc-500 dark:text-zinc-400 truncate w-full">
+            ${escapeHtml(soonest.event_type.name)} &middot; ${dueLabel(soonest.days_until)}
+          </div>
+          ${age ? `<div class="text-xs text-zinc-400 dark:text-zinc-500 truncate w-full">${escapeHtml(age)}</div>` : ""}
+        `;
+        card.addEventListener("click", () => personDetail.open(person.id));
+        grid.appendChild(card);
+      }
+    }
+
+    async function refreshPeople() {
+      const res = await fetch(`/api/people?sort=${currentSort}`);
+      people = await res.json();
+      renderCards();
+    }
+
+    sortSelect.addEventListener("change", () => {
+      currentSort = sortSelect.value;
+      refreshPeople();
+    });
+
+    searchInput.addEventListener("input", renderCards);
+    searchToggleBtn.addEventListener("click", () => {
+      const buttonBounds = searchToggleBtn.getBoundingClientRect();
+      const fieldBounds = searchField.getBoundingClientRect();
+      searchField.style.setProperty("--search-left", `${buttonBounds.left - fieldBounds.left}px`);
+      searchField.style.setProperty("--search-right", `${fieldBounds.right - buttonBounds.right}px`);
+      // Apply the collapsed bounds before starting the transition.
+      getComputedStyle(searchField).clipPath;
+      searchToggleBtn.classList.add("opacity-0");
+      searchToggleBtn.inert = true;
+      searchToggleBtn.setAttribute("aria-expanded", "true");
+      searchField.inert = false;
+      searchField.classList.add("is-open");
+      dashboardActions.classList.add("opacity-0");
+      dashboardActions.inert = true;
+      searchInput.focus();
+    });
+    function closeSearch() {
+      const buttonBounds = searchToggleBtn.getBoundingClientRect();
+      const fieldBounds = searchField.getBoundingClientRect();
+      searchField.style.setProperty("--search-left", `${buttonBounds.left - fieldBounds.left}px`);
+      searchField.style.setProperty("--search-right", `${fieldBounds.right - buttonBounds.right}px`);
+      searchInput.value = "";
+      renderCards();
+      searchField.classList.remove("is-open");
+      searchField.inert = true;
+      dashboardActions.classList.remove("opacity-0");
+      dashboardActions.inert = false;
+      searchToggleBtn.classList.remove("opacity-0");
+      searchToggleBtn.inert = false;
+      searchToggleBtn.setAttribute("aria-expanded", "false");
+      searchToggleBtn.focus();
+    }
+    clearSearchBtn.addEventListener("click", closeSearch);
+    searchField.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSearch();
+      }
+    });
+
+    renderCards();
+
+    // ── Add/edit form modal ──
+    const formModal = document.getElementById("form-modal");
+    const formTitle = document.getElementById("form-title");
+    const formError = document.getElementById("form-error");
+    const formNameField = document.getElementById("form-name-field");
+    const formName = document.getElementById("form-name");
+    const formEventType = document.getElementById("form-event-type");
+    const formMonth = document.getElementById("form-month");
+    const formDay = document.getElementById("form-day");
+    const formYear = document.getElementById("form-year");
+    const formYearUnknown = document.getElementById("form-year-unknown");
+    const formNotes = document.getElementById("form-notes");
+    const formNotify = document.getElementById("form-notify");
+    const formImageFields = document.getElementById("form-image-fields");
+    const formImagePreview = document.getElementById("form-image-preview");
+    const formImagePreviewImg = document.getElementById("form-image-preview-img");
+    const formImageFile = document.getElementById("form-image-file");
+    const formImageUrl = document.getElementById("form-image-url");
+    const formImageUrlBtn = document.getElementById("form-image-url-btn");
+    const formImageEditBtn = document.getElementById("form-image-edit-btn");
+    const formImageRemoveBtn = document.getElementById("form-image-remove-btn");
+    const formImageError = document.getElementById("form-image-error");
+    const formSubmitBtn = document.getElementById("form-submit-btn");
+
+    const formDatePicker = document.getElementById("form-date-picker");
+    const formDateButtons = document.getElementById("form-date-buttons");
+    let draftEvents = [];
+    let selectedEventIndex = 0;
+    let existingImageUrl = null;
+    let removeExistingImage = false;
+    let previewObjectUrl = null;
+    let formMode = "create"; // create | add-event | edit-card
+    let formContext = {}; // { personId, eventId }
+    let pendingImageBlob = null; // cropped, ready to upload
+    let pendingImageSourceBlob = null; // pre-crop, so "Edit" can reopen the editor on it
+
+    function setFormImagePreview(blob) {
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = blob ? URL.createObjectURL(blob) : null;
+      pendingImageBlob = blob;
+      const source = previewObjectUrl || (existingImageUrl && !removeExistingImage ? `/api${existingImageUrl}` : null);
+      if (source) {
+        formImagePreviewImg.src = source;
+        formImagePreview.classList.remove("hidden");
+      } else {
+        formImagePreviewImg.removeAttribute("src");
+        formImagePreview.classList.add("hidden");
+      }
+    }
+
+    function resetForm() {
+      formError.classList.add("hidden");
+      formImageError.classList.add("hidden");
+      formName.value = "";
+      formEventType.selectedIndex = 0;
+      formMonth.selectedIndex = new Date().getMonth();
+      formDay.value = String(new Date().getDate());
+      formYear.value = "";
+      formYear.disabled = false;
+      formYearUnknown.checked = false;
+      formNotes.value = "";
+      formNotify.checked = true;
+      formImageFile.value = "";
+      formImageUrl.value = "";
+      pendingImageSourceBlob = null;
+      existingImageUrl = null;
+      removeExistingImage = false;
+      draftEvents = [];
+      selectedEventIndex = 0;
+      formDatePicker.classList.add("hidden");
+      formDateButtons.replaceChildren();
+      setFormImagePreview(null);
+    }
+
+    function openFormModal(mode, context = {}) {
+      formMode = mode;
+      formContext = context;
+      resetForm();
+
+      if (mode === "create") {
+        formTitle.textContent = "Add a date";
+        formNameField.classList.remove("hidden");
+        formImageFields.classList.remove("hidden");
+        formSubmitBtn.textContent = "Save";
+      } else if (mode === "add-event") {
+        formTitle.textContent = "Add another date";
+        formNameField.classList.add("hidden");
+        formImageFields.classList.add("hidden");
+        formSubmitBtn.textContent = "Save";
+      } else if (mode === "edit-card") {
+        formTitle.textContent = "Edit card";
+        formNameField.classList.remove("hidden");
+        formImageFields.classList.remove("hidden");
+        formSubmitBtn.textContent = "Save changes";
+        formName.value = context.person.name;
+        existingImageUrl = context.person.image_url;
+        setFormImagePreview(null);
+        draftEvents = context.person.events.map((ev) => ({
+          id: ev.id, event_type_id: ev.event_type.id, month: ev.month, day: ev.day,
+          year: ev.year, year_known: ev.year_known, notes: ev.notes, notify: ev.notify,
+        }));
+        selectedEventIndex = Math.max(0, draftEvents.findIndex((ev) => ev.id === context.event?.id));
+        formDatePicker.classList.toggle("hidden", draftEvents.length < 2);
+        for (const [index, ev] of context.person.events.entries()) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "btn-secondary text-xs";
+          button.textContent = `${index + 1}. ${ev.event_type.name}`;
+          button.addEventListener("click", () => {
+            draftEvents[selectedEventIndex] = { id: draftEvents[selectedEventIndex].id, ...eventPayload() };
+            selectedEventIndex = index;
+            showDraftEvent();
+          });
+          formDateButtons.appendChild(button);
+        }
+        showDraftEvent();
+      }
+
+      formModal.classList.remove("hidden");
+    }
+
+    function showDraftEvent() {
+      const ev = draftEvents[selectedEventIndex];
+      formEventType.value = String(ev.event_type_id);
+      formMonth.value = String(ev.month);
+      formDay.value = String(ev.day);
+      formYear.value = ev.year ?? "";
+      formYearUnknown.checked = !ev.year_known;
+      formYear.disabled = !ev.year_known;
+      formNotes.value = ev.notes ?? "";
+      formNotify.checked = ev.notify ?? true;
+      [...formDateButtons.children].forEach((button, index) => {
+        button.setAttribute("aria-pressed", String(index === selectedEventIndex));
+        button.classList.toggle("ring-2", index === selectedEventIndex);
+      });
+    }
+
+    function closeFormModal() {
+      if (formSubmitBtn.disabled) return;
+      formModal.classList.add("hidden");
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+      if (formContext.personId && personDetail.current) personDetail.show();
+    }
+
+    formYearUnknown.addEventListener("change", () => {
+      formYear.disabled = formYearUnknown.checked;
+      if (formYearUnknown.checked) formYear.value = "";
+    });
+
+    document.getElementById("add-date-btn").addEventListener("click", () => openFormModal("create"));
+    document.getElementById("empty-add-date-btn").addEventListener("click", () => openFormModal("create"));
+    formModal.querySelectorAll(".form-close").forEach((el) => el.addEventListener("click", closeFormModal));
+    formModal.querySelector(".form-backdrop").addEventListener("click", closeFormModal);
+
+    async function uploadPersonImage(personId, blob) {
+      const fd = new FormData();
+      fd.append("file", blob, "photo.jpg");
+      const res = await fetch(`/api/people/${personId}/image`, { method: "POST", body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Could not upload photo");
+      }
+    }
+
+    formImageFile.addEventListener("change", async () => {
+      const file = formImageFile.files?.[0];
+      formImageFile.value = "";
+      if (!file) return;
+      const cropped = await openImageEditor(file);
+      if (cropped) {
+        pendingImageSourceBlob = file;
+        setFormImagePreview(cropped);
+      }
+    });
+
+    formImageUrlBtn.addEventListener("click", async () => {
+      const url = formImageUrl.value.trim();
+      if (!url) return;
+      formImageError.classList.add("hidden");
+      formImageUrlBtn.disabled = true;
+      try {
+        const preview = await fetchImagePreview(url);
+        const cropped = await openImageEditor(preview);
+        if (cropped) {
+          pendingImageSourceBlob = preview;
+          setFormImagePreview(cropped);
+          formImageUrl.value = "";
+        }
+      } catch (e) {
+        formImageError.textContent = e.message;
+        formImageError.classList.remove("hidden");
+      } finally {
+        formImageUrlBtn.disabled = false;
+      }
+    });
+
+    formImageEditBtn.addEventListener("click", async () => {
+      formImageError.classList.add("hidden");
+      formImageEditBtn.disabled = true;
+      try {
+        if (!pendingImageSourceBlob && existingImageUrl && !removeExistingImage) {
+          const res = await fetch(`/api${existingImageUrl}`);
+          if (!res.ok) throw new Error("Could not load photo");
+          pendingImageSourceBlob = await res.blob();
+        }
+        if (!pendingImageSourceBlob) return;
+        const cropped = await openImageEditor(pendingImageSourceBlob);
+        if (cropped) setFormImagePreview(cropped);
+      } catch (e) {
+        formImageError.textContent = e.message;
+        formImageError.classList.remove("hidden");
+      } finally {
+        formImageEditBtn.disabled = false;
+      }
+    });
+
+    formImageRemoveBtn.addEventListener("click", () => {
+      pendingImageSourceBlob = null;
+      removeExistingImage = true;
+      setFormImagePreview(null);
+    });
+
+    function eventPayload() {
+      return {
+        event_type_id: Number(formEventType.value),
+        month: Number(formMonth.value),
+        day: Number(formDay.value),
+        year: formYearUnknown.checked ? null : (formYear.value ? Number(formYear.value) : null),
+        year_known: !formYearUnknown.checked,
+        notes: formNotes.value.trim() || null,
+        notify: formNotify.checked,
+      };
+    }
+
+    formSubmitBtn.addEventListener("click", async () => {
+      formError.classList.add("hidden");
+      formSubmitBtn.disabled = true;
+      try {
+        if (formMode === "create") {
+          const name = formName.value.trim();
+          if (!name) throw new Error("Name is required");
+          const res = await fetch("/api/people", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, event: eventPayload() }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail?.[0]?.msg || data.detail || "Could not save");
+          }
+          const person = await res.json();
+          if (pendingImageBlob) {
+            await uploadPersonImage(person.id, pendingImageBlob);
+          }
+        } else if (formMode === "add-event") {
+          const res = await fetch(`/api/people/${formContext.personId}/events`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(eventPayload()),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail?.[0]?.msg || data.detail || "Could not save");
+          }
+        } else if (formMode === "edit-card") {
+          const name = formName.value.trim();
+          if (!name) throw new Error("Name is required");
+          draftEvents[selectedEventIndex] = { id: draftEvents[selectedEventIndex].id, ...eventPayload() };
+          const res = await fetch(`/api/people/${formContext.personId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, events: draftEvents }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail?.[0]?.msg || data.detail || "Could not save");
+          }
+          personDetail.setCurrent(await res.json());
+          try {
+            if (pendingImageBlob) {
+              await uploadPersonImage(formContext.personId, pendingImageBlob);
+            } else if (removeExistingImage && existingImageUrl) {
+              const imageRes = await fetch(`/api/people/${formContext.personId}/image`, { method: "DELETE" });
+              if (!imageRes.ok) throw new Error("Could not remove photo");
+            }
+          } catch (e) {
+            await refreshPeople();
+            throw new Error(`Name and dates saved, but the photo could not be saved. ${e.message}. Try saving again.`);
+          }
+        }
+
+        formSubmitBtn.disabled = false;
+        closeFormModal();
+        await refreshPeople();
+        if (formContext.personId || formContext.event) {
+          await personDetail.open(formContext.personId || formContext.event.person_id);
+        }
+      } catch (e) {
+        formError.textContent = e.message;
+        formError.classList.remove("hidden");
+      } finally {
+        formSubmitBtn.disabled = false;
+      }
+    });
+
+    // ── Detail modal (shared with the dashboard) ──
+    const personDetail = createPersonDetail({
+      onEditCard: (person) => openFormModal("edit-card", { personId: person.id, person }),
+      onEditEvent: (person, event) => openFormModal("edit-card", { event, personId: person.id, person }),
+      onAddEvent: (personId) => openFormModal("add-event", { personId }),
+      onDeleteEvent: () => refreshPeople(),
+      onDeletePerson: () => refreshPeople(),
+    });
+
+    // Dashboard and calendar links share the same editing UI here: ?open=
+    // views a card, ?edit= (plus optional &event=) jumps straight to editing
+    // it, ?add-event= opens the add-another-date form for it.
+    const params = new URLSearchParams(location.search);
+    const openId = Number(params.get("open"));
+    const editId = Number(params.get("edit"));
+    const addEventPersonId = Number(params.get("add-event"));
+    const eventId = Number(params.get("event"));
+    const editPerson = editId ? people.find((person) => person.id === editId) : null;
+    if (params.get("add") === "1") {
+      openFormModal("create");
+    } else if (editPerson) {
+      const event = eventId ? editPerson.events.find((e) => e.id === eventId) : undefined;
+      openFormModal("edit-card", { event, personId: editPerson.id, person: editPerson });
+    } else if (addEventPersonId && people.some((person) => person.id === addEventPersonId)) {
+      openFormModal("add-event", { personId: addEventPersonId });
+    } else if (openId && people.some((person) => person.id === openId)) {
+      personDetail.open(openId);
+    }
+    if (params.has("add") || params.has("open") || params.has("edit") || params.has("add-event") || params.has("event")) {
+      params.delete("add");
+      params.delete("open");
+      params.delete("edit");
+      params.delete("add-event");
+      params.delete("event");
+      history.replaceState(null, "", location.pathname + (params.size ? `?${params}` : "") + location.hash);
+    }
+  </script>
+</Layout>
+
+<style>
+  #search-field {
+    visibility: hidden;
+    opacity: 0;
+    clip-path: inset(0 var(--search-right, 50%) 0 var(--search-left, 50%) round 0.5rem);
+    transition: clip-path 200ms ease-in-out, opacity 80ms ease 120ms, visibility 0s 200ms;
+  }
+
+  #search-field.is-open {
+    visibility: visible;
+    opacity: 1;
+    clip-path: inset(-4px -4px -4px -4px round 0.5rem);
+    transition: clip-path 200ms ease, opacity 200ms ease, visibility 0s;
+  }
+
+  #search-toggle-btn[aria-expanded="false"],
+  #dashboard-actions:not(.opacity-0) {
+    transition-delay: 200ms;
+    transition-duration: 120ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #search-field,
+    #search-toggle-btn,
+    #dashboard-actions {
+      transition: none;
+    }
+  }
+</style>
