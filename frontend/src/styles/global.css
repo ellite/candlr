@@ -57,6 +57,16 @@ body {
   color: #fafafa;
 }
 
+/* Chrome on Android can calculate 100dvh too tall when an installed PWA is
+   first opened or refreshed. Use the stable viewport in standalone mode so
+   short pages do not gain a browser-bar-sized overflow. This still permits
+   normal document scrolling and pull-to-refresh. */
+@media (display-mode: standalone) {
+  .min-h-dvh {
+    min-height: 100svh;
+  }
+}
+
 /* Tailwind's preflight resets button cursor to default; every clickable
    control here should show a pointer, disabled ones excepted. */
 button:not(:disabled),

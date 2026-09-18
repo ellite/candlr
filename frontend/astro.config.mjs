@@ -8,6 +8,10 @@ import node from "@astrojs/node";
 export default defineConfig({
   output: "server",
 
+  devToolbar: {
+    enabled: false,
+  },
+
   security: {
     checkOrigin: false,
   },
@@ -20,7 +24,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     server: {
-      allowedHosts: ["candlr-dev.bellamylab.com"],
+      allowedHosts: true,
     },
   },
 
