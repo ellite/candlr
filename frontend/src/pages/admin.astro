@@ -36,22 +36,23 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
 
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-4">Users</h2>
-      <div class="overflow-x-auto -mx-6">
-        <table class="w-full text-sm">
+      <div class="-mx-6">
+        <table class="w-full table-fixed text-sm">
           <thead>
             <tr class="text-left text-xs text-zinc-600 dark:text-zinc-300 border-b">
-              <th class="font-medium px-6 py-2">Username</th>
-              <th class="font-medium px-6 py-2">Email</th>
-              <th class="font-medium px-6 py-2">Role</th>
-              <th class="font-medium px-6 py-2 text-right">&nbsp;</th>
+              <th class="font-medium px-6 py-2">User</th>
+              <th class="w-20 font-medium px-3 py-2">Role</th>
+              <th class="w-14 font-medium px-3 py-2 text-right"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody id="users-body">
             {users.map((u) => (
               <tr class="border-b last:border-0" data-user-row={u.id}>
-                <td class="px-6 py-3 font-medium">{u.username}</td>
-                <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{u.email}</td>
-                <td class="px-6 py-3">
+                <td class="min-w-0 px-6 py-3 align-top">
+                  <div class="font-medium">{u.username}</div>
+                  <div class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 [overflow-wrap:anywhere]">{u.email}</div>
+                </td>
+                <td class="px-3 py-3 align-top">
                   <span
                     data-role-badge
                     class:list={[
@@ -64,25 +65,42 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
                     {u.is_admin ? "Admin" : "User"}
                   </span>
                 </td>
-                <td class="px-6 py-3 text-right whitespace-nowrap">
+                <td class="px-3 py-3 text-right align-top">
                   {u.username !== meResult.username && (
-                    <div class="flex justify-end gap-2">
+                    <div class="relative inline-block text-left" data-user-actions>
                       <button
                         type="button"
-                        class="toggle-admin-btn btn-secondary text-xs px-3 py-1.5"
-                        data-user-id={u.id}
-                        data-is-admin={String(u.is_admin)}
+                        class="user-actions-btn btn-ghost p-1.5"
+                        aria-label={`Actions for ${u.username}`}
+                        aria-haspopup="menu"
+                        aria-expanded="false"
                       >
-                        {u.is_admin ? "Remove admin" : "Make admin"}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <circle cx="12" cy="5" r="1.75" />
+                          <circle cx="12" cy="12" r="1.75" />
+                          <circle cx="12" cy="19" r="1.75" />
+                        </svg>
                       </button>
-                      <button
-                        type="button"
-                        class="delete-user-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                        data-user-id={u.id}
-                        data-username={u.username}
-                      >
-                        Delete
-                      </button>
+                      <div class="user-actions-menu hidden absolute right-0 top-full z-20 mt-1 w-40 py-1 card shadow-lg" role="menu">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          class="toggle-admin-btn flex w-full px-3 py-2 text-left text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+                          data-user-id={u.id}
+                          data-is-admin={String(u.is_admin)}
+                        >
+                          {u.is_admin ? "Remove admin" : "Make admin"}
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          class="delete-user-btn flex w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                          data-user-id={u.id}
+                          data-username={u.username}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   )}
                 </td>
@@ -159,23 +177,61 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
       email.textContent = u.email;
       return `
         <tr class="border-b last:border-0" data-user-row="${u.id}">
-          <td class="px-6 py-3 font-medium">${username.innerHTML}</td>
-          <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">${email.innerHTML}</td>
-          <td class="px-6 py-3">
+          <td class="min-w-0 px-6 py-3 align-top">
+            <div class="font-medium">${username.innerHTML}</div>
+            <div class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 [overflow-wrap:anywhere]">${email.innerHTML}</div>
+          </td>
+          <td class="px-3 py-3 align-top">
             <span data-role-badge class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400">User</span>
           </td>
-          <td class="px-6 py-3 text-right whitespace-nowrap">
-            <div class="flex justify-end gap-2">
-              <button type="button" class="toggle-admin-btn btn-secondary text-xs px-3 py-1.5" data-user-id="${u.id}" data-is-admin="false">
-                Make admin
+          <td class="px-3 py-3 text-right align-top">
+            <div class="relative inline-block text-left" data-user-actions>
+              <button type="button" class="user-actions-btn btn-ghost p-1.5" aria-label="Actions for ${username.innerHTML}" aria-haspopup="menu" aria-expanded="false">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.75"></circle>
+                  <circle cx="12" cy="12" r="1.75"></circle>
+                  <circle cx="12" cy="19" r="1.75"></circle>
+                </svg>
               </button>
-              <button type="button" class="delete-user-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" data-user-id="${u.id}" data-username="${username.innerHTML}">
-                Delete
-              </button>
+              <div class="user-actions-menu hidden absolute right-0 top-full z-20 mt-1 w-40 py-1 card shadow-lg" role="menu">
+                <button type="button" role="menuitem" class="toggle-admin-btn flex w-full px-3 py-2 text-left text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors" data-user-id="${u.id}" data-is-admin="false">Make admin</button>
+                <button type="button" role="menuitem" class="delete-user-btn flex w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" data-user-id="${u.id}" data-username="${username.innerHTML}">Delete</button>
+              </div>
             </div>
           </td>
         </tr>`;
     }
+
+    function closeUserActionMenus() {
+      usersBody.querySelectorAll<HTMLElement>(".user-actions-menu").forEach((menu) => menu.classList.add("hidden"));
+      usersBody.querySelectorAll<HTMLButtonElement>(".user-actions-btn").forEach((btn) => {
+        btn.setAttribute("aria-expanded", "false");
+      });
+    }
+
+    usersBody.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest(".user-actions-btn") as HTMLButtonElement | null;
+      if (!btn) return;
+      const menu = btn.closest("[data-user-actions]")?.querySelector<HTMLElement>(".user-actions-menu");
+      if (!menu) return;
+      const willOpen = menu.classList.contains("hidden");
+      closeUserActionMenus();
+      if (willOpen) {
+        menu.classList.remove("hidden");
+        btn.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!(e.target as HTMLElement).closest(".user-actions-btn")) closeUserActionMenus();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const openBtn = usersBody.querySelector<HTMLButtonElement>('.user-actions-btn[aria-expanded="true"]');
+      closeUserActionMenus();
+      openBtn?.focus();
+    });
 
     addUserBtn?.addEventListener("click", async () => {
       const username = newUsernameInput.value.trim();
