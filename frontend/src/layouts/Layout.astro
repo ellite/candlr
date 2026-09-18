@@ -15,7 +15,7 @@ const { title = "Candlr", fullPage = false, user = null, activePage } = Astro.pr
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#fafafa" />
     <meta name="description" content="A simple birthday calendar." />
     <link rel="icon" href="/favicon.ico?v=4" sizes="16x16 32x32 48x48 64x64" />
@@ -35,7 +35,7 @@ const { title = "Candlr", fullPage = false, user = null, activePage } = Astro.pr
   </head>
 
   <body class:list={[
-    fullPage ? "min-h-screen flex items-center justify-center" : "min-h-screen",
+    fullPage ? "min-h-dvh flex items-center justify-center" : "min-h-dvh",
     user && "pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0",
   ]}>
     {user && <NavBar user={user} activePage={activePage} />}
