@@ -6,7 +6,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from .config import settings
 from .limiter import limiter
 from .routers import two_factor
-from .routers import auth, oidc, notifications, event_types, people, data, settings as settings_router
+from .routers import auth, oidc, notifications, event_types, people, data, calendar_feed, settings as settings_router
 
 docs_url = "/docs" if settings.docs_enabled else None
 redoc_url = "/redoc" if settings.docs_enabled else None
@@ -41,6 +41,7 @@ app.include_router(notifications.router)
 app.include_router(event_types.router)
 app.include_router(people.router)
 app.include_router(data.router)
+app.include_router(calendar_feed.router)
 app.include_router(settings_router.router)
 
 

@@ -38,6 +38,7 @@ Candlr keeps track of everyone's birthdays in one place, so you never miss one a
 
 - **Track anyone's birthdays, anniversaries, or your own event types**: Each card can hold several dates (a birthday and a wedding anniversary on the same card, for example). Add a photo by upload or by pasting an image URL, then zoom and reposition it with the built-in crop editor before saving. Notes support Markdown. The year is optional, if you don't know or don't want to record it, Candlr just tracks the month and day.
 - **Import and export**: Download all your cards as CSV or JSON from the settings page, or import from either format (merging into what you already have, so importing the same file twice changes nothing). Photos are not included.
+- **Calendar subscription**: A private iCal link (Subscribe button on the Calendar page) that puts every date in Google Calendar, Apple Calendar, Thunderbird or any app that can subscribe to a URL, repeating yearly and updating as you add cards. Regenerate or turn off the link at any time.
 - **OIDC / SSO**: Sign in with any OpenID Connect provider (Authelia, Authentik, Keycloak, etc.), with optional auto-created accounts.
 - **Notification channels**: Email, ntfy, Discord, Telegram, Pushover, and browser/device push, configured per account from the settings page, each with a "send test" button, plus an automatic reminder on the day itself.
 - **Dark / light theme**: Follows your system preference by default, with a manual toggle in the nav bar and on the login/register pages.

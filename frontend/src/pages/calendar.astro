@@ -33,8 +33,14 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
 <Layout title="Calendar" user={{ username, is_admin }} activePage="calendar">
   <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-    <div class="mb-6">
+    <div class="mb-6 flex items-center justify-between gap-3">
       <h1 class="text-lg font-semibold tracking-tight">Calendar</h1>
+      <button type="button" id="feed-open-btn" class="btn-secondary inline-flex items-center gap-2 px-3 py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
+        </svg>
+        Subscribe
+      </button>
     </div>
 
     <div class="card p-4 sm:p-6">
@@ -80,6 +86,51 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         </button>
       </div>
       <div id="day-modal-list" class="space-y-1"></div>
+    </div>
+  </div>
+
+  <!-- Subscribe (iCalendar feed) popup -->
+  <div id="feed-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="feed-backdrop absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-base font-semibold">Subscribe in your calendar app</h2>
+        <button type="button" class="feed-close btn-ghost p-1.5" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+        Get every birthday and anniversary in Google Calendar, Apple Calendar, Thunderbird or any app that can subscribe to an iCal link. It stays up to date as you add cards.
+      </p>
+
+      <div id="feed-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
+
+      <div id="feed-off" class="hidden">
+        <button type="button" id="feed-create-btn" class="btn-primary">Create subscription link</button>
+      </div>
+
+      <div id="feed-on" class="hidden">
+        <label class="label" for="feed-url">Subscription link</label>
+        <div class="flex gap-2 mb-2">
+          <input id="feed-url" class="input" type="text" readonly />
+          <button type="button" id="feed-copy-btn" class="btn-secondary flex-shrink-0">Copy</button>
+        </div>
+        <a id="feed-webcal" href="#" class="text-sm font-medium hover:underline">Open in calendar app</a>
+
+        <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-4">
+          Anyone with this link can see your dates, so keep it private. Google Calendar (Other calendars, From URL) can only reach it if your Candlr address is available from the internet.
+        </p>
+
+        <div class="flex items-center gap-4 mt-4 pt-4 border-t">
+          <button type="button" id="feed-rotate-btn" class="text-sm font-medium hover:underline">New link</button>
+          <button type="button" id="feed-disable-btn" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">Turn off</button>
+        </div>
+        <p id="feed-hint" class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+          A new link or turning it off stops the current link from working.
+        </p>
+      </div>
     </div>
   </div>
 
@@ -249,6 +300,132 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
     dayModal.querySelectorAll(".day-close").forEach((el) => el.addEventListener("click", closeDayModal));
     dayModal.querySelector(".day-backdrop").addEventListener("click", closeDayModal);
+
+    // ── Subscribe (iCalendar feed) ──
+    const feedModal = document.getElementById("feed-modal");
+    const feedStatus = document.getElementById("feed-status");
+    const feedOff = document.getElementById("feed-off");
+    const feedOn = document.getElementById("feed-on");
+    const feedUrl = document.getElementById("feed-url");
+    const feedWebcal = document.getElementById("feed-webcal");
+    const feedCopyBtn = document.getElementById("feed-copy-btn");
+    const feedRotateBtn = document.getElementById("feed-rotate-btn");
+    const feedDisableBtn = document.getElementById("feed-disable-btn");
+    const feedCreateBtn = document.getElementById("feed-create-btn");
+
+    function showFeedStatus(message, isError) {
+      feedStatus.textContent = message;
+      feedStatus.className = `text-sm px-3.5 py-2.5 rounded-lg mb-4 ${
+        isError
+          ? "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+          : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      }`;
+    }
+
+    function renderFeed(token) {
+      feedOff.classList.toggle("hidden", !!token);
+      feedOn.classList.toggle("hidden", !token);
+      if (!token) return;
+      // Built from the address this page is served on, so it is whatever URL
+      // the user (and so their calendar app) can actually reach.
+      const url = `${window.location.origin}/api/calendar/feed/${token}.ics`;
+      feedUrl.value = url;
+      feedWebcal.href = url.replace(/^https?:/, "webcal:");
+    }
+
+    async function feedRequest(method) {
+      const res = await fetch("/api/calendar/feed", { method });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      return data.token;
+    }
+
+    // Destructive buttons ask for a second click instead of a separate dialog.
+    function twoStep(button, idleLabel, action) {
+      let timer;
+      button.addEventListener("click", async () => {
+        if (button.dataset.armed !== "1") {
+          button.dataset.armed = "1";
+          button.textContent = "Click again to confirm";
+          timer = setTimeout(() => disarm(), 4000);
+          return;
+        }
+        clearTimeout(timer);
+        disarm();
+        try {
+          await action();
+        } catch (e) {
+          showFeedStatus(e.message, true);
+        }
+      });
+      function disarm() {
+        button.dataset.armed = "0";
+        button.textContent = idleLabel;
+      }
+    }
+
+    async function openFeedModal() {
+      feedStatus.classList.add("hidden");
+      feedOff.classList.add("hidden");
+      feedOn.classList.add("hidden");
+      feedModal.classList.remove("hidden");
+      try {
+        renderFeed(await feedRequest("GET"));
+      } catch (e) {
+        showFeedStatus(e.message, true);
+      }
+    }
+
+    function closeFeedModal() {
+      feedModal.classList.add("hidden");
+    }
+
+    feedCreateBtn.addEventListener("click", async () => {
+      feedStatus.classList.add("hidden");
+      try {
+        renderFeed(await feedRequest("POST"));
+      } catch (e) {
+        showFeedStatus(e.message, true);
+      }
+    });
+
+    feedCopyBtn.addEventListener("click", async () => {
+      feedStatus.classList.add("hidden");
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(feedUrl.value);
+        copied = true;
+      } catch {
+        // Clipboard API needs HTTPS or localhost; self-hosted over plain
+        // HTTP falls back to the old select-and-copy command.
+        feedUrl.select();
+        copied = document.execCommand("copy");
+      }
+      if (copied) {
+        feedCopyBtn.textContent = "Copied";
+        setTimeout(() => (feedCopyBtn.textContent = "Copy"), 1500);
+      } else {
+        showFeedStatus("Could not copy, select the link and copy it manually", true);
+      }
+    });
+
+    twoStep(feedRotateBtn, "New link", async () => {
+      renderFeed(await feedRequest("POST"));
+      showFeedStatus("New link created. Subscribe again with it, the old one no longer works.", false);
+    });
+    twoStep(feedDisableBtn, "Turn off", async () => {
+      await feedRequest("DELETE");
+      renderFeed(null);
+      showFeedStatus("Subscription link turned off.", false);
+    });
+
+    feedUrl.addEventListener("focus", () => feedUrl.select());
+    document.getElementById("feed-open-btn").addEventListener("click", openFeedModal);
+    feedModal.querySelectorAll(".feed-close").forEach((el) => el.addEventListener("click", closeFeedModal));
+    feedModal.querySelector(".feed-backdrop").addEventListener("click", closeFeedModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !feedModal.classList.contains("hidden")) closeFeedModal();
+    });
 
     // ── Navigation ──
     document.getElementById("cal-prev-btn").addEventListener("click", () => {

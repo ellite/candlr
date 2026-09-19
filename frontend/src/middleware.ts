@@ -23,6 +23,9 @@ const PUBLIC_API_ROUTES = [
   "/api/oidc/config",
   "/api/oidc/authorize",
   "/api/oidc/exchange",
+  // Trailing slash matters: only the token-in-URL .ics route is public, not
+  // the session-authenticated /api/calendar/feed management endpoints.
+  "/api/calendar/feed/",
 ];
 
 const SECURITY_HEADERS: Record<string, string> = {

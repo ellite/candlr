@@ -19,6 +19,9 @@ class User(Base):
     # Time of day (24h "HH:MM", in TIMEZONE) to send reminders for any Event
     # with notify=True - always on the day itself.
     notify_time = Column(String, nullable=False, default="09:00")
+    # Secret in the URL of the account's subscribable .ics feed. Null means
+    # the feed is off; regenerating it revokes every existing subscription.
+    calendar_token = Column(String, unique=True, index=True, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     two_factor = relationship("TwoFactorAuth", uselist=False, cascade="all, delete-orphan")
