@@ -3,11 +3,13 @@ import { initials } from "../lib/avatar.js";
 import { MONTH_NAMES, splitNumber } from "../lib/dates.js";
 import { milestone, type DashboardEntry } from "../lib/dashboard";
 
-interface Props { entry: DashboardEntry; prominent?: boolean }
-const { entry: { person, event }, prominent = false } = Astro.props;
-const occasion = milestone(event);
+interface Props { entry: DashboardEntry; prominent?: boolean; past?: boolean }
+const { entry: { person, event }, prominent = false, past = false } = Astro.props;
+const occasion = milestone(event, new Date(), past ? -event.days_since : event.days_until);
 const occasionParts = occasion ? splitNumber(occasion) : null;
-const due = event.days_until === 0 ? "Today" : event.days_until === 1 ? "Tomorrow" : `In ${event.days_until} days`;
+const due = past
+  ? event.days_since === 1 ? "Yesterday" : `${event.days_since} days ago`
+  : event.days_until === 0 ? "Today" : event.days_until === 1 ? "Tomorrow" : `In ${event.days_until} days`;
 ---
 
 <a href={`/events?open=${person.id}`} data-person-id={person.id} class:list={[
@@ -32,7 +34,7 @@ const due = event.days_until === 0 ? "Today" : event.days_until === 1 ? "Tomorro
     </p>
     <p class="text-xs mt-2 text-zinc-600 dark:text-zinc-300">
       <span class:list={[prominent && "text-accent dark:text-accent-light font-medium"]}>{due}</span>
-      {event.days_until > 0 && ` · ${MONTH_NAMES[event.month - 1]} ${event.day}`}
+      {(past || event.days_until > 0) && ` · ${MONTH_NAMES[event.month - 1]} ${event.day}`}
     </p>
   </div>
 </a>

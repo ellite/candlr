@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, DateT
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
-from .events_logic import days_until as _days_until
+from .events_logic import days_since as _days_since, days_until as _days_until
 
 
 class User(Base):
@@ -151,6 +151,10 @@ class Event(Base):
     @property
     def days_until(self) -> int:
         return _days_until(self.month, self.day)
+
+    @property
+    def days_since(self) -> int:
+        return _days_since(self.month, self.day)
 
 
 class ReminderDelivery(Base):

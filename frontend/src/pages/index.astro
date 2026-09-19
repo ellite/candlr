@@ -20,7 +20,7 @@ if (Astro.url.searchParams.has("open")) {
   return Astro.redirect(`/events?open=${encodeURIComponent(Astro.url.searchParams.get("open") ?? "")}`);
 }
 const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
-const { today, thisWeek, later, nextUp } = dashboardGroups(people);
+const { today, lastWeek, thisWeek, later, nextUp } = dashboardGroups(people);
 const upcomingGroups = [
   { title: "Next 7 days", entries: thisWeek },
   { title: "Later", entries: later },
@@ -49,6 +49,17 @@ const upcomingGroups = [
             </div>
           ) : (
             <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">No events today.</div>
+          )}
+        </section>
+
+        <section aria-labelledby="last-week-heading">
+          <h2 id="last-week-heading" class="text-base font-semibold mb-3">Last 7 days</h2>
+          {lastWeek.length ? (
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {lastWeek.map((entry) => <DashboardEvent entry={entry} past />)}
+            </div>
+          ) : (
+            <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">No events in the last 7 days.</div>
           )}
         </section>
 

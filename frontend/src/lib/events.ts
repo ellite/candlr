@@ -8,5 +8,6 @@ export type EventOut = {
   year_known: boolean;
   notes: string | null;
   days_until: number;
+  days_since: number;
 };
 export type Person = { id: number; name: string; image_url: string | null; events: EventOut[] };

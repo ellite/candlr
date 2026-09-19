@@ -36,6 +36,19 @@ def next_occurrence(month: int, day: int, today: date | None = None) -> date:
     return occurrence
 
 
+def previous_occurrence(month: int, day: int, today: date | None = None) -> date:
+    today = today or _today()
+    occurrence = _safe_date(today.year, month, day)
+    if occurrence > today:
+        occurrence = _safe_date(today.year - 1, month, day)
+    return occurrence
+
+
 def days_until(month: int, day: int, today: date | None = None) -> int:
     today = today or _today()
     return (next_occurrence(month, day, today) - today).days
+
+
+def days_since(month: int, day: int, today: date | None = None) -> int:
+    today = today or _today()
+    return (today - previous_occurrence(month, day, today)).days

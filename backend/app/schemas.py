@@ -169,6 +169,7 @@ class EventOut(BaseModel):
     notes: Optional[str]
     notify: bool
     days_until: int
+    days_since: int
 
     model_config = {"from_attributes": True}
 
