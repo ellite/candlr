@@ -26,7 +26,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 ---
 
 <Layout title="Events" user={{ username, is_admin }} activePage="events">
-  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+  <main id="events-main" class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
     <div class="flex items-center justify-between gap-4 mb-6 flex-wrap">
       <div class="relative flex items-center justify-end gap-2 w-full min-w-0">
         <div class="flex justify-end flex-1 min-w-0">
@@ -52,6 +52,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           <option value="upcoming">Upcoming</option>
           <option value="name">A - Z</option>
         </select>
+        <button id="select-mode-btn" type="button" class="btn-secondary flex-shrink-0" aria-pressed="false">Select</button>
         <button id="add-date-btn" class="btn-primary flex-shrink-0">+ Add</button>
         </div>
       </div>
@@ -70,6 +71,66 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
     <div id="people-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"></div>
   </main>
+
+  <!-- Bulk actions bar, shown while selecting cards. Sits above the mobile nav. -->
+  <div id="bulk-bar" class="hidden fixed z-40 inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-6 px-3 flex justify-center pointer-events-none">
+    <!-- Two rows on mobile (info + close, then actions); the groups use
+         sm:contents so on desktop every control sits in one row as before. -->
+    <div class="pointer-events-auto card shadow-lg flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-1.5 p-2.5 w-full sm:w-auto max-w-full">
+      <div class="flex items-center gap-1.5 sm:contents">
+        <span id="bulk-count" class="flex-1 sm:flex-none text-sm font-medium px-2 tabular-nums" role="status" aria-live="polite">0 selected</span>
+        <button id="bulk-all-btn" type="button" class="btn-ghost text-sm py-1.5">Select all</button>
+        <button id="bulk-cancel-btn" type="button" class="btn-ghost p-2 sm:py-1.5 sm:px-3 sm:order-4 text-sm" aria-label="Cancel selection">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          <span class="hidden sm:inline">Cancel</span>
+        </button>
+      </div>
+      <div class="grid grid-cols-3 gap-1.5 sm:contents">
+        <button id="bulk-type-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3 whitespace-nowrap" disabled>Change type</button>
+        <button id="bulk-notify-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3" disabled>Reminders</button>
+        <button id="bulk-delete-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3 text-red-600 dark:text-red-400" disabled>Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bulk-toast" class="hidden fixed z-[65] inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] sm:bottom-24 px-3 flex justify-center pointer-events-none">
+    <div id="bulk-toast-text" class="card shadow-lg text-sm px-4 py-2.5" role="status"></div>
+  </div>
+
+  <!-- Bulk action dialog: one modal, three panes (type / reminders / delete) -->
+  <div id="bulk-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div class="bulk-backdrop absolute inset-0 bg-black/40"></div>
+    <div class="relative card p-6 w-full max-w-sm">
+      <h2 id="bulk-title" class="text-base font-semibold mb-1.5"></h2>
+      <p id="bulk-message" class="text-sm text-zinc-600 dark:text-zinc-300 mb-4"></p>
+      <div id="bulk-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
+
+      <div id="bulk-pane-type" class="hidden space-y-3 mb-4">
+        <div>
+          <label class="label" for="bulk-from-type">Change dates of type</label>
+          <select id="bulk-from-type" class="select">
+            {eventTypes.map((et) => <option value={et.id}>{et.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label class="label" for="bulk-to-type">To</label>
+          <select id="bulk-to-type" class="select">
+            {eventTypes.map((et) => <option value={et.id}>{et.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 justify-end">
+        <button type="button" class="bulk-cancel btn-secondary">Cancel</button>
+        <button id="bulk-notify-off-btn" type="button" class="hidden btn-secondary">Turn off</button>
+        <button id="bulk-notify-on-btn" type="button" class="hidden btn-primary">Turn on</button>
+        <button id="bulk-type-confirm-btn" type="button" class="hidden btn-primary">Change type</button>
+        <button id="bulk-delete-confirm-btn" type="button" class="hidden text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50">Delete</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Add-a-date / add-another-event form -->
   <div id="form-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -220,6 +281,17 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     let people = window.__CANDLR_INITIAL_PEOPLE__;
     let currentSort = "upcoming";
 
+    // Select mode (bulk actions). `selected` holds person ids.
+    let selectMode = false;
+    const selected = new Set();
+    const checkHtml = `
+      <span data-check class="absolute top-2 left-2 w-5 h-5 rounded-full flex items-center justify-center ring-1 ring-zinc-300 dark:ring-zinc-600 bg-white/80 dark:bg-black/30 text-transparent">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+      </span>`;
+    const SELECTED_CARD = ["ring-2", "ring-zinc-900", "dark:ring-white"];
+    const SELECTED_CHECK = ["bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900", "ring-zinc-900", "dark:ring-white"];
+    const UNSELECTED_CHECK = ["bg-white/80", "dark:bg-black/30", "text-transparent", "ring-zinc-300", "dark:ring-zinc-600"];
+
     const grid = document.getElementById("people-grid");
     const emptyState = document.getElementById("empty-state");
     const sortSelect = document.getElementById("sort-select");
@@ -239,6 +311,10 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     function renderCards() {
       const query = searchInput.value.trim().toLocaleLowerCase();
       const visiblePeople = people.filter((person) => person.name.toLocaleLowerCase().includes(query));
+      // Only ever act on cards that are on screen: a search must not leave
+      // hidden cards selected for a bulk delete.
+      const visibleIds = new Set(visiblePeople.map((person) => person.id));
+      for (const id of selected) if (!visibleIds.has(id)) selected.delete(id);
       grid.innerHTML = "";
       emptyState.classList.toggle("hidden", people.length > 0);
       grid.classList.toggle("hidden", visiblePeople.length === 0);
@@ -253,6 +329,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         card.className = "card p-4 flex flex-col items-center text-center gap-2 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors";
         card.dataset.personId = person.id;
         card.innerHTML = `
+          ${selectMode ? checkHtml : ""}
           ${avatarHtml(person, "w-16 h-16 text-lg")}
           <div class="text-sm font-medium truncate w-full">${escapeHtml(person.name)}</div>
           <div class="text-xs text-zinc-600 dark:text-zinc-300 truncate w-full">
@@ -260,9 +337,16 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           </div>
           ${age ? `<div class="text-xs text-zinc-500 dark:text-zinc-400 truncate w-full">${highlightNumber(age)}</div>` : ""}
         `;
-        card.addEventListener("click", () => personDetail.open(person.id));
+        if (selectMode) {
+          card.classList.add("relative");
+          paintCard(card, selected.has(person.id));
+          card.addEventListener("click", () => toggleSelected(person.id, card));
+        } else {
+          card.addEventListener("click", () => personDetail.open(person.id));
+        }
         grid.appendChild(card);
       }
+      updateBulkBar();
     }
 
     async function refreshPeople() {
@@ -314,6 +398,178 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
       if (event.key === "Escape") {
         event.preventDefault();
         closeSearch();
+      }
+    });
+
+    // ── Bulk actions ──
+    const eventsMain = document.getElementById("events-main");
+    const selectModeBtn = document.getElementById("select-mode-btn");
+    const bulkBar = document.getElementById("bulk-bar");
+    const bulkCount = document.getElementById("bulk-count");
+    const bulkAllBtn = document.getElementById("bulk-all-btn");
+    const bulkActionBtns = ["bulk-type-btn", "bulk-notify-btn", "bulk-delete-btn"].map((id) => document.getElementById(id));
+    const bulkToast = document.getElementById("bulk-toast");
+    const bulkToastText = document.getElementById("bulk-toast-text");
+    const bulkModal = document.getElementById("bulk-modal");
+    const bulkTitle = document.getElementById("bulk-title");
+    const bulkMessage = document.getElementById("bulk-message");
+    const bulkError = document.getElementById("bulk-error");
+    const bulkTypePane = document.getElementById("bulk-pane-type");
+    const bulkFromType = document.getElementById("bulk-from-type");
+    const bulkToType = document.getElementById("bulk-to-type");
+    const bulkNotifyOnBtn = document.getElementById("bulk-notify-on-btn");
+    const bulkNotifyOffBtn = document.getElementById("bulk-notify-off-btn");
+    const bulkTypeConfirmBtn = document.getElementById("bulk-type-confirm-btn");
+    const bulkDeleteConfirmBtn = document.getElementById("bulk-delete-confirm-btn");
+    const bulkPaneButtons = [bulkNotifyOnBtn, bulkNotifyOffBtn, bulkTypeConfirmBtn, bulkDeleteConfirmBtn];
+
+    function plural(n, word) {
+      return `${n} ${word}${n === 1 ? "" : "s"}`;
+    }
+
+    function paintCard(card, isSelected) {
+      card.setAttribute("aria-pressed", String(isSelected));
+      card.classList.toggle("ring-2", isSelected);
+      for (const cls of SELECTED_CARD.slice(1)) card.classList.toggle(cls, isSelected);
+      const check = card.querySelector("[data-check]");
+      if (!check) return;
+      check.classList.remove(...(isSelected ? UNSELECTED_CHECK : SELECTED_CHECK));
+      check.classList.add(...(isSelected ? SELECTED_CHECK : UNSELECTED_CHECK));
+    }
+
+    function visibleIds() {
+      return [...grid.children].map((card) => Number(card.dataset.personId));
+    }
+
+    function updateBulkBar() {
+      bulkBar.classList.toggle("hidden", !selectMode);
+      bulkCount.textContent = `${selected.size} selected`;
+      for (const button of bulkActionBtns) button.disabled = selected.size === 0;
+      const ids = visibleIds();
+      bulkAllBtn.textContent = ids.length > 0 && ids.every((id) => selected.has(id)) ? "Clear" : "Select all";
+      bulkAllBtn.disabled = ids.length === 0;
+    }
+
+    function toggleSelected(id, card) {
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      paintCard(card, selected.has(id));
+      updateBulkBar();
+    }
+
+    function setSelectMode(on) {
+      selectMode = on;
+      selected.clear();
+      selectModeBtn.setAttribute("aria-pressed", String(on));
+      selectModeBtn.textContent = on ? "Done" : "Select";
+      // Room to scroll the last row clear of the floating bar.
+      eventsMain.classList.toggle("pb-32", on);
+      renderCards();
+    }
+
+    selectModeBtn.addEventListener("click", () => setSelectMode(!selectMode));
+    document.getElementById("bulk-cancel-btn").addEventListener("click", () => setSelectMode(false));
+    bulkAllBtn.addEventListener("click", () => {
+      const ids = visibleIds();
+      const all = ids.every((id) => selected.has(id));
+      selected.clear();
+      if (!all) for (const id of ids) selected.add(id);
+      renderCards();
+    });
+
+    let toastTimer;
+    function showToast(message) {
+      bulkToastText.textContent = message;
+      bulkToast.classList.remove("hidden");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => bulkToast.classList.add("hidden"), 4000);
+    }
+
+    function openBulkModal(pane) {
+      const count = selected.size;
+      const cards = plural(count, "card");
+      bulkError.classList.add("hidden");
+      bulkTypePane.classList.toggle("hidden", pane !== "type");
+      for (const button of bulkPaneButtons) button.classList.add("hidden");
+
+      if (pane === "type") {
+        bulkTitle.textContent = "Change date type";
+        bulkMessage.textContent = `Applies to the ${cards} selected. Dates of other types are left alone.`;
+        bulkFromType.value = String(eventTypes[0]?.id ?? "");
+        bulkToType.value = String((eventTypes[1] ?? eventTypes[0])?.id ?? "");
+        bulkTypeConfirmBtn.classList.remove("hidden");
+      } else if (pane === "notify") {
+        bulkTitle.textContent = "Reminders";
+        bulkMessage.textContent = `Turn reminders on or off for every date on the ${cards} selected.`;
+        bulkNotifyOffBtn.classList.remove("hidden");
+        bulkNotifyOnBtn.classList.remove("hidden");
+      } else {
+        bulkTitle.textContent = `Delete ${cards}?`;
+        bulkMessage.textContent = "This permanently deletes them along with all of their dates. This cannot be undone.";
+        bulkDeleteConfirmBtn.classList.remove("hidden");
+      }
+      bulkModal.classList.remove("hidden");
+    }
+
+    function closeBulkModal() {
+      bulkModal.classList.add("hidden");
+    }
+
+    async function runBulk(body, button, describe) {
+      const idleLabel = button.textContent;
+      bulkError.classList.add("hidden");
+      for (const b of bulkPaneButtons) b.disabled = true;
+      button.textContent = "Working…";
+      try {
+        const res = await fetch("/api/people/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, ids: [...selected] }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not apply that change");
+        closeBulkModal();
+        await refreshPeople();
+        setSelectMode(false);
+        showToast(describe(data));
+      } catch (e) {
+        bulkError.textContent = e.message;
+        bulkError.classList.remove("hidden");
+      } finally {
+        for (const b of bulkPaneButtons) b.disabled = false;
+        button.textContent = idleLabel;
+      }
+    }
+
+    document.getElementById("bulk-type-btn").addEventListener("click", () => openBulkModal("type"));
+    document.getElementById("bulk-notify-btn").addEventListener("click", () => openBulkModal("notify"));
+    document.getElementById("bulk-delete-btn").addEventListener("click", () => openBulkModal("delete"));
+    bulkModal.querySelectorAll(".bulk-cancel").forEach((el) => el.addEventListener("click", closeBulkModal));
+    bulkModal.querySelector(".bulk-backdrop").addEventListener("click", closeBulkModal);
+
+    bulkTypeConfirmBtn.addEventListener("click", () =>
+      runBulk(
+        { action: "set_type", from_event_type_id: Number(bulkFromType.value), to_event_type_id: Number(bulkToType.value) },
+        bulkTypeConfirmBtn,
+        (r) => (r.dates ? `Changed ${plural(r.dates, "date")} on ${plural(r.people, "card")}` : "No dates of that type on the selected cards"),
+      ),
+    );
+    bulkNotifyOnBtn.addEventListener("click", () =>
+      runBulk({ action: "set_notify", notify: true }, bulkNotifyOnBtn, (r) => `Reminders on for ${plural(r.dates, "date")}`),
+    );
+    bulkNotifyOffBtn.addEventListener("click", () =>
+      runBulk({ action: "set_notify", notify: false }, bulkNotifyOffBtn, (r) => `Reminders off for ${plural(r.dates, "date")}`),
+    );
+    bulkDeleteConfirmBtn.addEventListener("click", () =>
+      runBulk({ action: "delete" }, bulkDeleteConfirmBtn, (r) => `Deleted ${plural(r.people, "card")}`),
+    );
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (!bulkModal.classList.contains("hidden")) {
+        closeBulkModal();
+      } else if (selectMode && !document.querySelector(".fixed.inset-0:not(.hidden)")) {
+        setSelectMode(false);
       }
     });
 

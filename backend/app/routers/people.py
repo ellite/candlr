@@ -11,7 +11,16 @@ from ..dependencies import get_current_user
 from ..events_logic import days_until
 from ..images import ImageError, download_image, normalize_image, save_image, delete_image
 from ..models import Event, EventType, Person, User
-from ..schemas import AccountDelete, EventInput, ImageUrlRequest, PersonCreate, PersonOut, PersonUpdate
+from ..schemas import (
+    AccountDelete,
+    BulkRequest,
+    BulkResult,
+    EventInput,
+    ImageUrlRequest,
+    PersonCreate,
+    PersonOut,
+    PersonUpdate,
+)
 
 router = APIRouter(tags=["people"])
 
@@ -80,6 +89,54 @@ def delete_all_people(
         db.delete(person)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/people/bulk", response_model=BulkResult)
+def bulk_people(data: BulkRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Applies one action to many of the caller's cards. Ids that don't
+    belong to the caller (or no longer exist) are ignored, and the result
+    counts what was actually changed."""
+    people = (
+        db.query(Person)
+        .options(joinedload(Person.events))
+        .filter(Person.user_id == current_user.id, Person.id.in_(set(data.ids)))
+        .all()
+    )
+
+    if data.action == "delete":
+        result = BulkResult(people=len(people), dates=sum(len(person.events) for person in people))
+        filenames = [person.image_filename for person in people if person.image_filename]
+        for person in people:
+            db.delete(person)
+        db.commit()
+        # After the commit, so a failed delete never leaves rows pointing at missing files.
+        for filename in filenames:
+            delete_image(filename)
+        return result
+
+    if data.action == "set_type":
+        if data.from_event_type_id == data.to_event_type_id:
+            raise HTTPException(status_code=400, detail="Choose two different event types")
+        _get_event_type(db, current_user.id, data.from_event_type_id)
+        _get_event_type(db, current_user.id, data.to_event_type_id)
+        changed_people = set()
+        changed_dates = 0
+        for person in people:
+            for event in person.events:
+                if event.event_type_id == data.from_event_type_id:
+                    event.event_type_id = data.to_event_type_id
+                    changed_people.add(person.id)
+                    changed_dates += 1
+        db.commit()
+        return BulkResult(people=len(changed_people), dates=changed_dates)
+
+    dates = 0
+    for person in people:
+        for event in person.events:
+            event.notify = data.notify
+            dates += 1
+    db.commit()
+    return BulkResult(people=len(people), dates=dates)
 
 
 @router.post("/people", response_model=PersonOut, status_code=201)

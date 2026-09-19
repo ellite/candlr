@@ -1,6 +1,6 @@
 import calendar
 from pydantic import BaseModel, EmailStr, Field, model_validator
-from typing import Optional, Literal
+from typing import Annotated, Optional, Literal, Union
 from datetime import datetime
 
 
@@ -199,3 +199,37 @@ class PersonOut(BaseModel):
 
 class ImageUrlRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
+
+
+# Bulk actions on cards
+BulkIds = Annotated[list[int], Field(min_length=1, max_length=5000)]
+
+
+class BulkDelete(BaseModel):
+    action: Literal["delete"]
+    ids: BulkIds
+
+
+class BulkSetType(BaseModel):
+    """Changes dates of one type to another on the chosen cards. It swaps a
+    specific type rather than assigning one, so a card holding both a
+    Birthday and an Anniversary keeps them apart."""
+
+    action: Literal["set_type"]
+    ids: BulkIds
+    from_event_type_id: int
+    to_event_type_id: int
+
+
+class BulkSetNotify(BaseModel):
+    action: Literal["set_notify"]
+    ids: BulkIds
+    notify: bool
+
+
+BulkRequest = Annotated[Union[BulkDelete, BulkSetType, BulkSetNotify], Field(discriminator="action")]
+
+
+class BulkResult(BaseModel):
+    people: int
+    dates: int
