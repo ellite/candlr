@@ -27,6 +27,7 @@ const user = meResult.value;
 const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.value : [];
 const channels = channelsResult.status === "fulfilled" ? channelsResult.value : [];
 const vapidPublicKey = vapidResult.status === "fulfilled" ? vapidResult.value.public_key : null;
+const jsonExample = '{"people": [{"name": "Alex", "events": [{"type": "Birthday", "month": 3, "day": 5, "year": 1990}]}]}';
 const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPreferencesResult.value.notify_time : "09:00";
 ---
 
@@ -290,6 +291,52 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="card p-6">
+      <h2 class="text-sm font-medium mb-1">Import and export</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+        Download every card and date as a file, or add cards from one. Photos are not included.
+      </p>
+      <div class="flex flex-wrap gap-2 mb-5">
+        <a href="/api/data/export?format=csv" download class="btn-secondary">Export CSV</a>
+        <a href="/api/data/export?format=json" download class="btn-secondary">Export JSON</a>
+      </div>
+
+      <label
+        id="import-drop"
+        for="import-file"
+        class="flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer rounded-xl border-2 border-dashed px-4 py-8 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 focus-within:ring-2 focus-within:ring-zinc-900/10 dark:focus-within:ring-white/10"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+        </svg>
+        <span id="import-drop-text" class="text-sm font-medium">Drop a CSV or JSON file here, or click to choose</span>
+        <span class="text-xs text-zinc-500 dark:text-zinc-400">Up to 2 MB</span>
+        <input id="import-file" class="sr-only" type="file" accept=".csv,.json,text/csv,application/json" />
+      </label>
+      <button id="import-btn" class="btn-secondary mt-3" disabled>Import</button>
+      <div id="import-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mt-3"></div>
+      <ul id="import-errors" class="hidden list-disc pl-5 mt-2 text-xs text-zinc-600 dark:text-zinc-300 space-y-0.5"></ul>
+
+      <details class="mt-4 text-xs text-zinc-600 dark:text-zinc-300">
+        <summary class="cursor-pointer">File format</summary>
+        <div class="mt-2 space-y-2">
+          <p>
+            CSV has one row per date with the columns <code>name, type, month, day, year, notes, notify</code>.
+            Rows with the same name become one card. <code>year</code> and <code>notes</code> can be blank,
+            and a <code>date</code> column (<code>1990-04-12</code> or <code>04-12</code>) can replace
+            <code>month</code>, <code>day</code> and <code>year</code>. A blank <code>type</code> uses your first event type.
+          </p>
+          <p>
+            JSON is the same data grouped by person: <code set:text={jsonExample} />.
+          </p>
+          <p>
+            Importing merges into what you already have. A name that matches an existing card only gains the dates
+            it is missing, and event types that don't exist yet are created, so importing an export twice changes nothing.
+          </p>
+        </div>
+      </details>
     </section>
 
     <section class="card p-6">
@@ -621,6 +668,108 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         deleteEventsError.classList.remove("hidden");
         deleteEventsBtn.disabled = false;
         deleteEventsBtn.textContent = "Delete all events";
+      }
+    });
+
+    // ── Import ──
+    const importFile = document.getElementById("import-file");
+    const importBtn = document.getElementById("import-btn");
+    const importStatus = document.getElementById("import-status");
+    const importErrors = document.getElementById("import-errors");
+    const importDrop = document.getElementById("import-drop");
+    const importDropText = document.getElementById("import-drop-text");
+    const IMPORT_DROP_HINT = importDropText.textContent;
+    // Highlight with background + ring, not border color: global.css sets
+    // border-color on `*` unlayered, which beats any border-color utility.
+    const DRAG_CLASSES = ["bg-zinc-100", "dark:bg-white/10", "ring-2", "ring-zinc-900/20", "dark:ring-white/25"];
+
+    function syncImportFile() {
+      const file = importFile.files?.[0];
+      importDropText.textContent = file ? file.name : IMPORT_DROP_HINT;
+      importBtn.disabled = !file;
+    }
+
+    importFile.addEventListener("change", syncImportFile);
+
+    // Counter, not a boolean: dragenter/dragleave also fire for every child
+    // element the pointer crosses, which would make the highlight flicker.
+    let dragDepth = 0;
+    importDrop.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragDepth++;
+      importDrop.classList.add(...DRAG_CLASSES);
+    });
+    importDrop.addEventListener("dragover", (e) => e.preventDefault());
+    importDrop.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) importDrop.classList.remove(...DRAG_CLASSES);
+    });
+    importDrop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      importDrop.classList.remove(...DRAG_CLASSES);
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      importFile.files = transfer.files;
+      syncImportFile();
+    });
+
+    function showImportStatus(message, isError) {
+      importStatus.textContent = message;
+      importStatus.className = `text-sm px-3.5 py-2.5 rounded-lg mt-3 ${
+        isError
+          ? "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+          : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      }`;
+    }
+
+    function plural(n, word) {
+      return `${n} ${word}${n === 1 ? "" : "s"}`;
+    }
+
+    importBtn?.addEventListener("click", async () => {
+      const file = importFile.files?.[0];
+      importErrors.classList.add("hidden");
+      importErrors.replaceChildren();
+      if (!file) {
+        showImportStatus("Choose a file first", true);
+        return;
+      }
+
+      importBtn.disabled = true;
+      importBtn.textContent = "Importing…";
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/data/import", { method: "POST", body: form });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "Could not import that file");
+
+        const parts = [`${plural(data.events_added, "date")} added`];
+        if (data.people_created) parts.push(`${plural(data.people_created, "new card")}`);
+        if (data.event_types_created) parts.push(`${plural(data.event_types_created, "new event type")}`);
+        if (data.events_skipped) parts.push(`${plural(data.events_skipped, "duplicate")} skipped`);
+        if (data.invalid_rows) parts.push(`${plural(data.invalid_rows, "invalid row")} skipped`);
+        showImportStatus(`Imported: ${parts.join(", ")}.`, false);
+
+        for (const message of data.errors) {
+          const li = document.createElement("li");
+          li.textContent = message;
+          importErrors.appendChild(li);
+        }
+        if (data.errors.length) importErrors.classList.remove("hidden");
+        if (data.event_types_created) {
+          // The event type list above is rendered from page load data.
+          setTimeout(() => window.location.reload(), data.errors.length ? 6000 : 1500);
+        }
+        importFile.value = "";
+      } catch (e) {
+        showImportStatus(e.message, true);
+      } finally {
+        syncImportFile();
+        importBtn.textContent = "Import";
       }
     });
 

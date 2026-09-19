@@ -37,6 +37,8 @@ export const ALL: APIRoute = async ({ request, params }) => {
   if (contentType) headers.set("content-type", contentType);
   const cacheControl = upstreamRes.headers.get("cache-control");
   if (cacheControl) headers.set("cache-control", cacheControl);
+  const contentDisposition = upstreamRes.headers.get("content-disposition");
+  if (contentDisposition) headers.set("content-disposition", contentDisposition);
   const setCookie = upstreamRes.headers.get("set-cookie");
   if (setCookie) headers.set("set-cookie", setCookie);
 
