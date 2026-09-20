@@ -10,6 +10,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { escapeHtml, avatarHtml } from "./avatar.js";
 import { formatDate, ageLabel, dueLabel, highlightNumber } from "./dates.js";
+import { reminderLineHtml } from "./reminders.js";
 
 marked.setOptions({ breaks: true });
 
@@ -38,6 +39,7 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
             <div class="text-xs text-zinc-600 dark:text-zinc-300">
               ${escapeHtml(formatDate(ev))}${highlightNumber(ageLabel(ev))} &middot; ${dueLabel(ev.days_until)}
             </div>
+            ${reminderLineHtml(ev)}
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
             <button type="button" class="btn-ghost p-1.5" data-edit-event="${ev.id}" aria-label="Edit">

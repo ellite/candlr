@@ -7,6 +7,7 @@ export type EventOut = {
   year: number | null;
   year_known: boolean;
   notes: string | null;
+  notify: boolean;
   days_until: number;
   days_since: number;
 };
