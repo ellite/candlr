@@ -101,7 +101,9 @@ class CardEditTests(unittest.TestCase):
         renamed = self.client.put("/people/1", json={"name": "Renamed"}).json()
         self.assertEqual(renamed["events"], self.person["events"])
         self.assertEqual(renamed["image_url"], second["image_url"])
-        self.assertEqual(self.client.get(second["image_url"]).status_code, 200)
+        image_response = self.client.get(second["image_url"])
+        self.assertEqual(image_response.status_code, 200)
+        self.assertEqual(image_response.headers["cache-control"], "private, max-age=31536000, immutable")
         self.assertIsNone(self.client.delete("/people/1/image").json()["image_url"])
 
 

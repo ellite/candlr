@@ -283,4 +283,7 @@ def get_image(filename: str, current_user: User = Depends(get_current_user), db:
     path = settings.images_dir / filename
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(str(path), headers={"Cache-Control": "private, max-age=3600"})
+    # Stored images get a new random filename whenever they are replaced, so
+    # their URLs are immutable. Keep them in the browser cache long-term to
+    # avoid reloading every card photo on later visits.
+    return FileResponse(str(path), headers={"Cache-Control": "private, max-age=31536000, immutable"})
