@@ -34,7 +34,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
       <h1 class="text-lg font-semibold tracking-tight">Admin</h1>
     </div>
 
-    <section class="card p-6">
+    <section class="card p-6 pb-0">
       <h2 class="text-sm font-medium mb-4">Users</h2>
       <div class="-mx-6">
         <table class="w-full table-fixed text-sm">
@@ -52,7 +52,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
                   <div class="font-medium">{u.username}</div>
                   <div class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 [overflow-wrap:anywhere]">{u.email}</div>
                 </td>
-                <td class="px-3 py-3 align-top">
+                <td class="px-3 py-3 align-middle">
                   <span
                     data-role-badge
                     class:list={[
@@ -183,7 +183,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
             <div class="font-medium">${username.innerHTML}</div>
             <div class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 [overflow-wrap:anywhere]">${email.innerHTML}</div>
           </td>
-          <td class="px-3 py-3 align-top">
+          <td class="px-3 py-3 align-middle">
             <span data-role-badge class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400">User</span>
           </td>
           <td class="px-3 py-3 text-right align-top">
