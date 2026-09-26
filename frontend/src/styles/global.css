@@ -77,6 +77,37 @@ select:not(:disabled) {
   cursor: pointer;
 }
 
+/* Thumb-friendly controls on phones. Keep compact desktop spacing, but make
+   the interactive area at least 44px tall on touch-sized layouts. Icon-only
+   controls opt into .icon-button so their width grows without enlarging the
+   glyph itself. */
+@media (max-width: 639px) {
+  button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .input,
+  .custom-select-trigger {
+    min-height: 2.75rem;
+  }
+
+  a.btn-primary,
+  a.btn-secondary,
+  a.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-button {
+    display: inline-flex;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 /* Minimal styling for rendered markdown (event notes). Written as plain CSS
    (not @apply) and marked !important: Tailwind's preflight list/margin
    resets in @layer base were still winning over an @apply'd, unlayered

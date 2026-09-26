@@ -11,6 +11,8 @@ import DOMPurify from "dompurify";
 import { escapeHtml, avatarHtml } from "./avatar.js";
 import { formatDate, ageLabel, dueLabel, highlightNumber } from "./dates.js";
 import { reminderLineHtml } from "./reminders.js";
+import { showToast } from "./toast.js";
+import { lockScroll, unlockScroll } from "./scrollLock.js";
 
 marked.setOptions({ breaks: true });
 
@@ -33,22 +35,22 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
       row.className = "p-3 rounded-lg bg-stone-50 dark:bg-white/5 [overflow-wrap:anywhere]";
       const notesHtml = ev.notes ? DOMPurify.sanitize(marked.parse(ev.notes)) : "";
       row.innerHTML = `
-        <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <div class="text-sm font-medium">${escapeHtml(ev.event_type.name)}</div>
-            <div class="text-xs text-zinc-600 dark:text-zinc-300">
+            <div class="text-[13px] text-zinc-600 dark:text-zinc-300">
               ${escapeHtml(formatDate(ev))}${highlightNumber(ageLabel(ev))} &middot; ${dueLabel(ev.days_until)}
             </div>
             ${reminderLineHtml(ev)}
           </div>
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <button type="button" class="btn-ghost p-1.5" data-edit-event="${ev.id}" aria-label="Edit">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <div class="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+            <button type="button" class="icon-button btn-ghost p-1.5" data-edit-event="${ev.id}" aria-label="Edit">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </button>
-            <button type="button" class="btn-ghost p-1.5" data-delete-event="${ev.id}" aria-label="Delete">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <button type="button" class="icon-button btn-ghost p-1.5" data-delete-event="${ev.id}" aria-label="Delete">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
@@ -65,17 +67,28 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
     if (!res.ok) return null;
     currentPerson = await res.json();
     render();
+    // Guarded by the modal's own visibility rather than assuming callers
+    // pair open/show with exactly one close: some flows (e.g. saving an
+    // edit) call show() and then open() again in the same tick, and each
+    // would otherwise lock the background scroll a second time.
+    const wasHidden = detailModal.classList.contains("hidden");
     detailModal.classList.remove("hidden");
+    if (wasHidden) lockScroll();
     return currentPerson;
   }
 
   function show() {
-    if (currentPerson) detailModal.classList.remove("hidden");
+    if (!currentPerson) return;
+    const wasHidden = detailModal.classList.contains("hidden");
+    detailModal.classList.remove("hidden");
+    if (wasHidden) lockScroll();
   }
 
   function close() {
+    const wasVisible = !detailModal.classList.contains("hidden");
     detailModal.classList.add("hidden");
     currentPerson = null;
+    if (wasVisible) unlockScroll();
   }
 
   function setCurrent(person) {
@@ -158,7 +171,7 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
       closeConfirm();
     } catch (e) {
       closeConfirm();
-      alert(e.message);
+      showToast(e.message, "error");
     } finally {
       confirmDeleteBtn.disabled = false;
     }

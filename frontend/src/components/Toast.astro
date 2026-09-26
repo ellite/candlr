@@ -1,0 +1,7 @@
+---
+// Global toast host: one live region present on every page, filled by
+// lib/toast.js's showToast(). Keeping it in Layout means any page's script
+// can show a toast without also having to render the markup for it.
+---
+
+<div id="toast-region" class="fixed inset-x-0 top-[calc(1rem+env(safe-area-inset-top))] z-[80] flex flex-col items-center gap-2 px-3 pointer-events-none" aria-live="polite" aria-atomic="true"></div>

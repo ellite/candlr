@@ -63,7 +63,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           <li class="flex items-center gap-2 px-2 py-2 rounded-lg bg-stone-50 dark:bg-white/5" data-event-type-id={et.id}>
             <button
               type="button"
-              class="text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1"
+              class="icon-button text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1"
               data-drag-handle
               aria-label="Drag to reorder"
             >
@@ -74,7 +74,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
             </button>
             <span class="text-sm flex-1 truncate">{et.name}</span>
             {!et.is_default && <button
-              class="text-xs text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1"
+              class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1"
               data-delete-event-type={et.id}
               data-name={et.name}
               title="Delete"
@@ -486,14 +486,14 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       name.textContent = et.name;
       return `
         <li class="flex items-center gap-2 px-2 py-2 rounded-lg bg-stone-50 dark:bg-white/5" data-event-type-id="${et.id}">
-          <button type="button" class="text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1" data-drag-handle aria-label="Drag to reorder">
+          <button type="button" class="icon-button text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1" data-drag-handle aria-label="Drag to reorder">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <circle cx="9" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" />
               <circle cx="15" cy="6" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="15" cy="18" r="1.4" />
             </svg>
           </button>
           <span class="text-sm flex-1 truncate">${name.innerHTML}</span>
-          ${!et.is_default ? `<button class="text-xs text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${name.innerHTML}" title="Delete" aria-label="Delete ${name.innerHTML}">
+          ${!et.is_default ? `<button class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${name.innerHTML}" title="Delete" aria-label="Delete ${name.innerHTML}">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>

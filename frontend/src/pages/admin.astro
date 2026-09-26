@@ -70,7 +70,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
                     <div class="relative inline-block text-left" data-user-actions>
                       <button
                         type="button"
-                        class="user-actions-btn btn-ghost p-1.5"
+                        class="user-actions-btn icon-button btn-ghost p-1.5"
                         aria-label={`Actions for ${u.username}`}
                         aria-haspopup="menu"
                         aria-expanded="false"
@@ -162,6 +162,8 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
   </div>
 
   <script>
+    import { showToast } from "../lib/toast.js";
+
     // ── Add user ──
     const usersBody = document.getElementById("users-body")!;
     const addUserError = document.getElementById("add-user-error")!;
@@ -186,7 +188,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
           </td>
           <td class="px-3 py-3 text-right align-top">
             <div class="relative inline-block text-left" data-user-actions>
-              <button type="button" class="user-actions-btn btn-ghost p-1.5" aria-label="Actions for ${username.innerHTML}" aria-haspopup="menu" aria-expanded="false">
+              <button type="button" class="user-actions-btn icon-button btn-ghost p-1.5" aria-label="Actions for ${username.innerHTML}" aria-haspopup="menu" aria-expanded="false">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <circle cx="12" cy="5" r="1.75"></circle>
                   <circle cx="12" cy="12" r="1.75"></circle>
@@ -305,7 +307,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
         btn.textContent = makeAdmin ? "Remove admin" : "Make admin";
         btn.dataset.isAdmin = String(makeAdmin);
       } catch (err: any) {
-        alert(err.message ?? "Could not update user");
+        showToast(err.message ?? "Could not update user", "error");
       } finally {
         btn.disabled = false;
       }
@@ -349,7 +351,7 @@ const users = (await apiJson<AdminUser[]>("/settings/users", { cookies }).catch(
         document.querySelector(`[data-user-row="${userId}"]`)?.remove();
         closeDeleteUserModal();
       } catch (err: any) {
-        alert(err.message ?? "Could not delete user");
+        showToast(err.message ?? "Could not delete user", "error");
         closeDeleteUserModal();
       } finally {
         deleteUserConfirmBtn.disabled = false;

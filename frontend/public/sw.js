@@ -39,7 +39,6 @@ function isCacheable(url) {
   if (url.pathname.startsWith("/icons/")) return true;
   if (url.pathname.startsWith("/branding/")) return true;
   return (
-    url.pathname === "/favicon.svg" ||
     url.pathname === "/favicon.ico" ||
     url.pathname === "/favicon-v4.png" ||
     url.pathname === "/apple-touch-icon.png" ||

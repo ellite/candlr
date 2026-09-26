@@ -26,6 +26,6 @@ export function cardBellHtml(person) {
 // is readable without opening the edit form.
 export function reminderLineHtml(event) {
   return event.notify
-    ? `<div class="flex items-center gap-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 mt-0.5">${icon(BELL, "w-3.5 h-3.5")}Reminders on</div>`
-    : `<div class="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">${icon(BELL_OFF, "w-3.5 h-3.5")}Reminders off</div>`;
+    ? `<div class="flex items-center gap-1 text-[13px] font-medium text-zinc-700 dark:text-zinc-200 mt-0.5">${icon(BELL, "w-3.5 h-3.5")}Reminders on</div>`
+    : `<div class="flex items-center gap-1 text-[13px] text-zinc-500 dark:text-zinc-400 mt-0.5">${icon(BELL_OFF, "w-3.5 h-3.5")}Reminders off</div>`;
 }

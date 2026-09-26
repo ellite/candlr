@@ -1,6 +1,7 @@
 ---
 import NavBar from "../components/NavBar.astro";
 import MobileNav from "../components/MobileNav.astro";
+import Toast from "../components/Toast.astro";
 
 interface Props {
   title?: string;
@@ -22,6 +23,11 @@ const { title = "Candlr", fullPage = false, user = null, activePage } = Astro.pr
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-v4.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4" />
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Candlr" />
+    <meta name="format-detection" content="telephone=no" />
     <title>{title} | Candlr</title>
 
     <script is:inline>
@@ -41,6 +47,7 @@ const { title = "Candlr", fullPage = false, user = null, activePage } = Astro.pr
     {user && <NavBar user={user} activePage={activePage} />}
     <slot />
     {user && <MobileNav activePage={activePage} />}
+    <Toast />
     <script>
       // Registered on every page, including login/register - not just when
       // logged in - so the browser can evaluate install criteria (manifest +
