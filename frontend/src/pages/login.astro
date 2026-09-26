@@ -94,7 +94,7 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
 
         {!oidcConfig.disable_password_login && registration.enabled && (
           <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-4">
-            No account? <a href="/register" class="text-zinc-900 dark:text-zinc-100 font-medium hover:underline">Create one</a>
+            No account? <a href="/register" class="text-accent dark:text-accent-light font-medium hover:underline">Create one</a>
           </p>
         )}
       </div>
