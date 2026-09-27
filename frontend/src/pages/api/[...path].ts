@@ -39,8 +39,12 @@ export const ALL: APIRoute = async ({ request, params }) => {
   if (cacheControl) headers.set("cache-control", cacheControl);
   const contentDisposition = upstreamRes.headers.get("content-disposition");
   if (contentDisposition) headers.set("content-disposition", contentDisposition);
-  const setCookie = upstreamRes.headers.get("set-cookie");
-  if (setCookie) headers.set("set-cookie", setCookie);
+  // One append per cookie: /auth/2fa/verify clears the challenge cookie and
+  // sets the session cookie, and headers.get() would collapse the two into a
+  // single comma-joined value the browser cannot read.
+  for (const setCookie of upstreamRes.headers.getSetCookie()) {
+    headers.append("set-cookie", setCookie);
+  }
 
   const responseBody = upstreamRes.status === 204 ? null : await upstreamRes.arrayBuffer();
 
