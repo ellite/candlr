@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { apiFetch } from "../lib/api";
+import { applySetCookies } from "../lib/cookies";
 
 // This page is the OIDC redirect_uri - the provider sends the browser here
 // with ?code=...&state=... after the user authenticates.
@@ -36,10 +37,7 @@ if (!error) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.detail || "SSO login failed");
       }
-      const setCookie = res.headers.get("set-cookie");
-      if (setCookie) {
-        Astro.response.headers.append("set-cookie", setCookie);
-      }
+      applySetCookies(Astro.cookies, res.headers);
       const data = await res.json();
       return Astro.redirect(data.requires_2fa ? `/two-factor?next=${encodeURIComponent(storedNext)}` : storedNext);
     } catch (e: unknown) {
