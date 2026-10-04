@@ -22,7 +22,7 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 # webpush is intentionally excluded from manual enable/config - it's managed
 # by the subscribe/unsubscribe endpoints instead, since its "config" is a set
 # of per-device subscriptions rather than a single form.
-CONFIGURABLE_CHANNELS = ["email", "ntfy", "discord", "telegram", "pushover"]
+CONFIGURABLE_CHANNELS = ["email", "ntfy", "discord", "telegram", "pushover", "gotify"]
 ALL_CHANNELS = CONFIGURABLE_CHANNELS + ["webpush"]
 
 
@@ -39,6 +39,15 @@ def _validate_config(channel: str, config: dict) -> None:
         (config.get("user_key") or "").strip() and (config.get("api_token") or "").strip()
     ):
         raise HTTPException(status_code=400, detail="Pushover user key and API token are required")
+    if channel == "gotify" and not (
+        (config.get("server") or "").strip() and (config.get("app_token") or "").strip()
+    ):
+        raise HTTPException(status_code=400, detail="Gotify server URL and app token are required")
+    if channel == "gotify":
+        raw_priority = config.get("priority")
+        priority = "" if raw_priority is None else str(raw_priority).strip()
+        if priority and not (priority.isdigit() and 0 <= int(priority) <= 10):
+            raise HTTPException(status_code=400, detail="Gotify priority must be a whole number from 0 to 10")
 
 
 def _get_channel_row(db: Session, user_id: int, channel: str) -> NotificationChannel | None:

@@ -53,7 +53,7 @@ class NotificationChannel(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    channel = Column(String, nullable=False)  # email | ntfy | discord | telegram | webpush
+    channel = Column(String, nullable=False)  # email | ntfy | discord | telegram | pushover | gotify | webpush
     enabled = Column(Boolean, nullable=False, default=False)
     # Channel-specific settings, e.g. {"topic": "..."} for ntfy, {"webhook_url": "..."}
     # for Discord. Unused (empty) for email and webpush, whose destination is
