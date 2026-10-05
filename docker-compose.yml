@@ -31,6 +31,7 @@ services:
       # - OIDC_SCOPES=openid email profile
       # - OIDC_AUTO_CREATE_USERS=true
       # - OIDC_DISABLE_PASSWORD_LOGIN=false
+      # - OIDC_TRUST_PROVIDER_2FA=false  # true = SSO logins skip Candlr's 2FA code (use only if the provider enforces MFA)
 
       # CardDAV address book sync (optional). Needed when your address book is on
       # a private address, such as a Radicale or Nextcloud on your LAN.

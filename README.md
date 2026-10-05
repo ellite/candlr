@@ -190,6 +190,7 @@ Candlr can authenticate against any OpenID Connect provider (Authelia, Authentik
 | `OIDC_SCOPES` | `openid email profile` | |
 | `OIDC_AUTO_CREATE_USERS` | `true` | If `false`, only users who already exist locally can sign in via SSO. |
 | `OIDC_DISABLE_PASSWORD_LOGIN` | `false` | Hides the username/password form entirely; login and register become SSO-only. |
+| `OIDC_TRUST_PROVIDER_2FA` | `false` | Skips Candlr's own authenticator-app step for SSO logins, for when your provider already enforces multi-factor. Password logins still need it. Only enable this if the provider really requires MFA, since otherwise an SSO login with a single factor reaches accounts that have Candlr 2FA on. |
 
 The first person to sign in, local or via OIDC, becomes the instance admin.
 
@@ -197,7 +198,7 @@ The first person to sign in, local or via OIDC, becomes the instance admin.
 
 Accounts with a local password can enable authenticator-app 2FA under **Settings > Two-factor authentication**. Confirm your password, scan the QR code (or enter the setup key manually), and confirm the six-digit code. Save the ten single-use recovery codes before leaving setup. Settings also lets you replace recovery codes or turn off 2FA using your password and an authenticator or recovery code.
 
-Both password and SSO sign-in require the second step when Candlr 2FA is enabled. SSO-only accounts manage their second factor with their identity provider. Password reset does not remove 2FA. Enabling or disabling 2FA signs out other sessions.
+Both password and SSO sign-in require the second step when Candlr 2FA is enabled, unless the admin sets `OIDC_TRUST_PROVIDER_2FA=true` to let SSO logins rely on the provider's own multi-factor check (password sign-in still asks for the code). SSO-only accounts manage their second factor with their identity provider. Password reset does not remove 2FA. Enabling or disabling 2FA signs out other sessions.
 
 Setup expires after ten minutes and sign-in challenges after five minutes. Five failed verification attempts lock further attempts for five minutes. Authenticator codes cannot be reused. TOTP follows [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238) through [PyOTP](https://pyauth.github.io/pyotp/).
 

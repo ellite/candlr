@@ -141,7 +141,9 @@ def oidc_exchange(
         db.refresh(user)
         seed_default_event_types(db, user.id)
 
-    if begin_login(db, user, response):
+    # Candlr's TOTP step applies to SSO logins too, unless the admin has said
+    # the provider already enforces its own second factor.
+    if not settings.oidc_trust_provider_2fa and begin_login(db, user, response):
         return {"requires_2fa": True}
 
     token = _create_session(db, user)

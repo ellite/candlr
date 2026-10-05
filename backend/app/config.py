@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # OIDC_REDIRECT_URL must point at this app's /oidc-callback page
     oidc_redirect_url: str = "http://localhost:4258/oidc-callback"
     oidc_identifier_field: str = "email"
+    # Skip Candlr's own authenticator-app step for SSO logins, trusting the
+    # provider to have done its own multi-factor check. Password logins still
+    # require it. Off by default: with it on, an SSO login that the provider
+    # didn't protect with MFA reaches an account that has Candlr 2FA enabled.
+    oidc_trust_provider_2fa: bool = False
     oidc_scopes: str = "openid email profile"
     oidc_auto_create_users: bool = True
     oidc_disable_password_login: bool = False

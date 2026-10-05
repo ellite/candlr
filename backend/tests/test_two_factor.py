@@ -170,18 +170,38 @@ class TwoFactorTests(unittest.TestCase):
         self.client.cookies.clear()
         self.assertEqual(self.client.post("/auth/2fa/setup", json={"password": "password123"}).status_code, 401)
 
-    def test_oidc_cannot_bypass_enabled_2fa(self):
-        self.enable()
-        self.client.cookies.clear()
-        with patch.object(settings, "oidc_enabled", True), patch("app.routers.oidc.httpx.Client") as client:
+    def oidc_exchange(self, **overrides):
+        with patch.multiple(settings, oidc_enabled=True, **overrides), patch("app.routers.oidc.httpx.Client") as client:
             http = client.return_value.__enter__.return_value
             http.post.return_value.is_success = True
             http.post.return_value.json.return_value = {"access_token": "test"}
             http.get.return_value.is_success = True
             http.get.return_value.json.return_value = {"email": "test@example.com"}
-            response = self.client.post("/oidc/exchange", json={"code": "provider-code"})
+            return self.client.post("/oidc/exchange", json={"code": "provider-code"})
+
+    def test_oidc_cannot_bypass_enabled_2fa(self):
+        self.enable()
+        self.client.cookies.clear()
+        response = self.oidc_exchange()
         self.assertEqual(response.json(), {"requires_2fa": True})
         self.assertNotIn("candlr_token", self.client.cookies)
+
+    def test_trusting_the_provider_skips_2fa_for_sso_only(self):
+        self.enable()
+        self.client.cookies.clear()
+        response = self.oidc_exchange(oidc_trust_provider_2fa=True)
+        self.assertEqual(response.json(), {"ok": True})
+        self.assertIn("candlr_token", self.client.cookies)
+        self.assertEqual(self.client.get("/auth/me").status_code, 200)
+        # Password logins still need the authenticator code.
+        with patch.object(settings, "oidc_trust_provider_2fa", True):
+            self.challenge()
+        # And with 2FA never enabled, SSO logs in either way.
+        with self.sessions() as db:
+            db.get(TwoFactorAuth, 1).enabled = False
+            db.commit()
+        self.client.cookies.clear()
+        self.assertEqual(self.oidc_exchange().json(), {"ok": True})
 
     def test_concurrent_challenge_consumption_creates_only_one_session(self):
         with tempfile.TemporaryDirectory() as directory:
