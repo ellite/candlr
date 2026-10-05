@@ -42,7 +42,7 @@ Candlr keeps track of everyone's birthdays in one place, so you never miss one a
 - **Import and export**: Download all your cards as CSV or JSON from the settings page, or import from either format, or from a vCard (`.vcf`) export of your address book, such as Radicale, Baïkal or Nextcloud (merging into what you already have, so importing the same file twice changes nothing). Photos are not included.
 - **Calendar subscription**: A private iCal link (Subscribe button on the Calendar page) that puts every date in Google Calendar, Apple Calendar, Thunderbird or any app that can subscribe to a URL, repeating yearly and updating as you add cards. Regenerate or turn off the link at any time.
 - **OIDC / SSO**: Sign in with any OpenID Connect provider (Authelia, Authentik, Keycloak, etc.), with optional auto-created accounts.
-- **Notification channels**: Email, ntfy, Discord, Telegram, Pushover, and browser/device push, configured per account from the settings page, each with a "send test" button, plus an automatic reminder on the day itself.
+- **Notification channels**: Email, ntfy, Discord, Telegram, Pushover, Gotify, and browser/device push, configured per account from the settings page, each with a "send test" button, plus an automatic reminder on the day itself.
 - **Dark / light theme**: Follows your system preference by default, with a manual toggle in the nav bar and on the login/register pages.
 - **SQLite storage**: A single file database - no separate database container to run or maintain.
 - **Single container**: Frontend and backend ship together - no separate services to manage.
@@ -224,7 +224,7 @@ Each account can configure its own notification channels from the settings page,
 Docker starts the worker automatically under supervisord after migrations. For local development, run `alembic upgrade head`, then `python -m app.reminders` from `backend/` alongside the API and frontend.
 
 - **Email** and **device (browser push)** need instance-wide setup (below) before any account can use them. Everything else is entirely self-serve from the settings page.
-- **ntfy**, **Discord**, **Telegram**, and **Pushover** need nothing from you as the admin; each user pastes in their own topic/webhook/bot/app details.
+- **ntfy**, **Discord**, **Telegram**, **Pushover**, and **Gotify** need nothing from you as the admin; each user pastes in their own topic/webhook/bot/app details.
 
 | Variable | Default | Description |
 |---|---|---|

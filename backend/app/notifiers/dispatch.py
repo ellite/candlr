@@ -6,6 +6,7 @@ from . import ntfy as ntfy_notifier
 from . import discord as discord_notifier
 from . import telegram as telegram_notifier
 from . import pushover as pushover_notifier
+from . import gotify as gotify_notifier
 from . import webpush as webpush_notifier
 from .errors import NotifierError
 
@@ -15,6 +16,7 @@ _SENDERS = {
     "discord": lambda db, user, title, body, config: discord_notifier.send(title, body, config),
     "telegram": lambda db, user, title, body, config: telegram_notifier.send(title, body, config),
     "pushover": lambda db, user, title, body, config: pushover_notifier.send(title, body, config),
+    "gotify": lambda db, user, title, body, config: gotify_notifier.send(title, body, config),
 }
 
 
