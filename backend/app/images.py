@@ -3,71 +3,32 @@ image (not just trust the declared content type), normalize it, and store it
 under a random filename in settings.images_dir.
 
 The URL path fetches server-side, so it's treated as untrusted input and
-guarded against SSRF: only http(s), only to a hostname that resolves
-exclusively to public IP addresses (every resolved address is checked, and
-DNS is re-resolved rather than trusting a client-supplied IP literal)."""
+guarded against SSRF by netguard.check_outbound_url: only http(s), and only
+to public addresses unless the admin allows an internal one."""
 
 import io
-import ipaddress
 import secrets
-import socket
 from pathlib import Path
-from urllib.parse import urlparse
 
 import httpx
 from PIL import Image, UnidentifiedImageError
 
 from .config import settings
+from .netguard import UnsafeURLError, check_outbound_url
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB, applies to both uploads and downloads
 MAX_DIMENSION = 800  # longest side, after normalization
 ALLOWED_INPUT_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
 
-_BLOCKED_NETWORKS = [
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),  # link-local, cloud metadata (169.254.169.254)
-    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),  # unique local
-    ipaddress.ip_network("fe80::/10"),  # link-local
-]
-
-
 class ImageError(Exception):
     """Raised for any invalid upload/URL/image content; message is user-facing."""
 
 
-def is_blocked_ip(ip_str: str) -> bool:
-    try:
-        addr = ipaddress.ip_address(ip_str)
-    except ValueError:
-        return True  # unparsable -> reject rather than risk it
-    if isinstance(addr, ipaddress.IPv6Address):
-        mapped = addr.ipv4_mapped
-        if mapped is not None:
-            return is_blocked_ip(str(mapped))
-    return any(addr in network for network in _BLOCKED_NETWORKS)
-
-
 def _validate_public_url(url: str) -> None:
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ImageError("URL must start with http:// or https://")
-    hostname = parsed.hostname
-    if not hostname:
-        raise ImageError("URL has no hostname")
-
     try:
-        resolved = socket.getaddrinfo(hostname, None)
-    except OSError:
-        raise ImageError("Could not resolve that hostname")
-
-    ips = {info[4][0] for info in resolved}
-    if not ips or any(is_blocked_ip(ip) for ip in ips):
-        raise ImageError("That URL points at a private or internal address")
+        check_outbound_url(url)
+    except UnsafeURLError as e:
+        raise ImageError(str(e)) from None
 
 
 _MAX_REDIRECTS = 5

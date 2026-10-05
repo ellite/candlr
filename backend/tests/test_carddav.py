@@ -75,12 +75,12 @@ class CardDavTestBase(unittest.TestCase):
             db.commit()
             seed_default_event_types(db, 1)
             seed_default_event_types(db, 2)
-        self.previous = (settings.carddav_allow_private_hosts, settings.carddav_sync_interval_minutes)
-        settings.carddav_allow_private_hosts = True
+        self.previous = (settings.internal_ip_allow_list, settings.carddav_sync_interval_minutes)
+        settings.internal_ip_allow_list = "127.0.0.1:5232"  # the fake server's address
         self.server = Server()
 
     def tearDown(self):
-        settings.carddav_allow_private_hosts, settings.carddav_sync_interval_minutes = self.previous
+        settings.internal_ip_allow_list, settings.carddav_sync_interval_minutes = self.previous
         self.engine.dispose()
 
     def connect(self, user_id=1, password="s3cret"):
@@ -130,15 +130,15 @@ class FetchTests(CardDavTestBase):
             carddav.fetch_cards(URL, "", "", transport)
 
     def test_private_and_link_local_addresses(self):
-        settings.carddav_allow_private_hosts = False
+        settings.internal_ip_allow_list = ""
         for url in ["http://127.0.0.1/dav/", "http://10.0.0.5/dav/", "http://192.168.1.2/dav/"]:
             with self.assertRaises(carddav.CardDavError) as error:
                 carddav.check_url(url)
-            self.assertIn("CARDDAV_ALLOW_PRIVATE_HOSTS", str(error.exception))
-        settings.carddav_allow_private_hosts = True
+            self.assertIn("INTERNAL_IP_ALLOW_LIST", str(error.exception))
+        settings.internal_ip_allow_list = "127.0.0.1,169.254.169.254"
         carddav.check_url("http://127.0.0.1/dav/")
         with self.assertRaises(carddav.CardDavError):
-            carddav.check_url("http://169.254.169.254/latest/meta-data/")  # always refused
+            carddav.check_url("http://169.254.169.254/latest/meta-data/")  # never allowed, even when listed
         for url in ["ftp://example.com/", "file:///etc/passwd", "not a url"]:
             with self.assertRaises(carddav.CardDavError):
                 carddav.check_url(url)
@@ -351,8 +351,10 @@ class ApiTests(CardDavTestBase):
     def test_save_rejects_bad_urls(self):
         for url in ["ftp://example.com/", "http://169.254.169.254/"]:
             self.assertEqual(self.client.put("/carddav", json={"url": url}).status_code, 400, url)
-        settings.carddav_allow_private_hosts = False
-        self.assertEqual(self.client.put("/carddav", json={"url": "http://192.168.1.2/dav/"}).status_code, 400)
+        settings.internal_ip_allow_list = ""
+        res = self.client.put("/carddav", json={"url": "http://192.168.1.2/dav/"})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("INTERNAL_IP_ALLOW_LIST", res.json()["detail"])
 
     def test_sync_now_cooldown_and_errors(self):
         self.assertEqual(self.client.post("/carddav/sync").status_code, 400)  # nothing connected

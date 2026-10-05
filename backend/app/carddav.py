@@ -10,12 +10,9 @@ user's. Photos are not synced."""
 
 import base64
 import hashlib
-import ipaddress
 import logging
-import socket
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -25,7 +22,8 @@ from sqlalchemy.orm import Session, joinedload
 from .config import settings
 from .data_transfer import ImportFormatError, ParsedCard, parse_vcards
 from .events_logic import start_year_problem
-from .images import delete_image, is_blocked_ip
+from .images import delete_image
+from .netguard import UnsafeURLError, check_outbound_url
 from .models import CardDavAccount, Event, EventType, Person
 
 log = logging.getLogger(__name__)
@@ -35,7 +33,6 @@ MAX_RESPONSE_BYTES = 25 * 1024 * 1024
 MAX_ERRORS_REPORTED = 20
 REQUEST_TIMEOUT = 30.0
 _NS = {"d": "DAV:", "c": "urn:ietf:params:xml:ns:carddav"}
-_LINK_LOCAL = [ipaddress.ip_network("169.254.0.0/16"), ipaddress.ip_network("fe80::/10")]
 
 # Only the properties Candlr reads, so servers that honor partial retrieval
 # don't send photos. Servers that ignore it just send everything.
@@ -95,25 +92,11 @@ def decrypt_password(stored: str) -> str:
 
 
 def check_url(url: str) -> None:
-    """Rejects anything that isn't a plain http(s) address Candlr may call.
-    Private addresses are refused unless CARDDAV_ALLOW_PRIVATE_HOSTS is set;
-    link-local ones (cloud metadata endpoints) are always refused."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        raise CardDavError("The address book URL must start with http:// or https://")
+    """Rejects anything Candlr may not connect to (see netguard.py)."""
     try:
-        resolved = {info[4][0] for info in socket.getaddrinfo(parsed.hostname, None)}
-    except OSError:
-        raise CardDavError("Could not resolve the address book's hostname")
-    for ip in resolved:
-        addr = ipaddress.ip_address(ip.split("%")[0])
-        if any(addr in network for network in _LINK_LOCAL):
-            raise CardDavError("That URL points at a link-local address, which is never allowed")
-        if not settings.carddav_allow_private_hosts and is_blocked_ip(ip):
-            raise CardDavError(
-                "That URL points at a private or internal address. "
-                "The server admin can allow this by setting CARDDAV_ALLOW_PRIVATE_HOSTS=true"
-            )
+        check_outbound_url(url)
+    except UnsafeURLError as e:
+        raise CardDavError(str(e)) from None
 
 
 def fetch_cards(url: str, username: str, password: str, transport: httpx.BaseTransport | None = None) -> list[RemoteCard]:

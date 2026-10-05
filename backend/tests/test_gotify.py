@@ -23,6 +23,17 @@ from app.routers import notifications
 GOOD = {"server": "https://gotify.example.com/", "app_token": "tok"}
 
 
+def fake_dns(name_to_ip=None):
+    """Resolves names from a table (default: everything is a public address),
+    so the outbound guard never touches real DNS in tests."""
+    table = name_to_ip or {}
+
+    def getaddrinfo(host, port, *args, **kwargs):
+        return [(2, 1, 6, "", (table.get(host, "93.184.216.34"), port or 0))]
+
+    return patch("app.netguard.socket.getaddrinfo", getaddrinfo)
+
+
 class ParseConfigTests(unittest.TestCase):
     def test_valid_configs(self):
         self.assertEqual(gotify.parse_config(GOOD), ("https://gotify.example.com", "tok", None))
@@ -51,6 +62,11 @@ class ParseConfigTests(unittest.TestCase):
 
 
 class SendTests(unittest.TestCase):
+    def setUp(self):
+        dns = fake_dns()
+        dns.start()
+        self.addCleanup(dns.stop)
+
     def post_through(self, handler):
         client = httpx.Client(transport=httpx.MockTransport(handler))
         return patch("app.notifiers.gotify.httpx.post", lambda url, **kwargs: client.post(url, **kwargs))
@@ -92,6 +108,9 @@ class SendTests(unittest.TestCase):
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
+        dns = fake_dns()
+        dns.start()
+        self.addCleanup(dns.stop)
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         Base.metadata.create_all(self.engine)
         self.sessions = sessionmaker(bind=self.engine)

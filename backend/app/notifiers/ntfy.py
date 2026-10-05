@@ -1,5 +1,6 @@
 import httpx
 
+from ..netguard import UnsafeURLError, check_outbound_url
 from .errors import NotifierError
 
 
@@ -9,6 +10,10 @@ def send(title: str, body: str, config: dict) -> None:
         raise NotifierError("ntfy topic is not set")
 
     server = (config.get("server") or "https://ntfy.sh").rstrip("/")
+    try:
+        check_outbound_url(server)
+    except UnsafeURLError as e:
+        raise NotifierError(f"ntfy server: {e}") from None
     headers = {"Title": title}
     access_token = (config.get("access_token") or "").strip()
     if access_token:

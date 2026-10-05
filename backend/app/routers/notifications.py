@@ -5,6 +5,7 @@ from ..config import settings
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import NotificationChannel, PushSubscription, User
+from ..netguard import UnsafeURLError, check_outbound_url
 from ..notifiers import dispatch, gotify
 from ..notifiers.errors import NotifierError
 from ..schemas import (
@@ -26,11 +27,23 @@ CONFIGURABLE_CHANNELS = ["email", "ntfy", "discord", "telegram", "pushover", "go
 ALL_CHANNELS = CONFIGURABLE_CHANNELS + ["webpush"]
 
 
+def _check_url(label: str, url: str) -> None:
+    try:
+        check_outbound_url(url)
+    except UnsafeURLError as e:
+        raise HTTPException(status_code=400, detail=f"{label}: {e}")
+
+
 def _validate_config(channel: str, config: dict) -> None:
-    if channel == "ntfy" and not (config.get("topic") or "").strip():
-        raise HTTPException(status_code=400, detail="ntfy topic is required")
-    if channel == "discord" and not (config.get("webhook_url") or "").strip():
-        raise HTTPException(status_code=400, detail="Discord webhook URL is required")
+    if channel == "ntfy":
+        if not (config.get("topic") or "").strip():
+            raise HTTPException(status_code=400, detail="ntfy topic is required")
+        if (config.get("server") or "").strip():
+            _check_url("ntfy server", config["server"].strip().rstrip("/"))
+    if channel == "discord":
+        if not (config.get("webhook_url") or "").strip():
+            raise HTTPException(status_code=400, detail="Discord webhook URL is required")
+        _check_url("Discord webhook", config["webhook_url"].strip())
     if channel == "telegram" and not (
         (config.get("bot_token") or "").strip() and (config.get("chat_id") or "").strip()
     ):
@@ -41,9 +54,10 @@ def _validate_config(channel: str, config: dict) -> None:
         raise HTTPException(status_code=400, detail="Pushover user key and API token are required")
     if channel == "gotify":
         try:
-            gotify.parse_config(config)
+            server, _, _ = gotify.parse_config(config)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        _check_url("Gotify server", server)
 
 
 def _get_channel_row(db: Session, user_id: int, channel: str) -> NotificationChannel | None:

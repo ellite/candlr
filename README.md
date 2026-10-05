@@ -210,12 +210,29 @@ Authenticator secrets are encrypted using a key derived from `SECRET_KEY`; recov
 
 Sync is one way and the address book is the master copy. Every contact with a `BDAY`, `ANNIVERSARY` or `X-ANNIVERSARY` becomes a card with a Birthday or Anniversary date, matched by the contact's UID, so renaming a contact renames its card instead of duplicating it. A card you already made with the same name is adopted on the first sync. Names and dates are overwritten by each sync; notes and the reminder switch on a date are kept. A contact deleted in the address book removes its card, unless the server returns no dated contacts at all, which is treated as a wrong URL and changes nothing. Photos are not synced, and nothing is ever written back to the address book.
 
-The worker syncs every connected address book on a schedule, and **Sync now** does it on demand. The password is stored encrypted with a key derived from `SECRET_KEY`, so keep that stable.
+An address book on a private address (a Radicale or Nextcloud on your LAN or in another container) needs that address in `INTERNAL_IP_ALLOW_LIST`, see below. The worker syncs every connected address book on a schedule, and **Sync now** does it on demand. The password is stored encrypted with a key derived from `SECRET_KEY`, so keep that stable.
 
 | Variable | Default | Description |
 |---|---|---|
-| `CARDDAV_ALLOW_PRIVATE_HOSTS` | `false` | Address books on private or internal addresses (a Radicale or Nextcloud on your LAN or in another container) are refused unless this is `true`. Link-local addresses are always refused. |
 | `CARDDAV_SYNC_INTERVAL_MINUTES` | `360` | How often the worker syncs each address book. `0` turns the scheduled sync off. |
+
+## Internal addresses (INTERNAL_IP_ALLOW_LIST)
+
+Several features make the server fetch a URL a user typed: person photo URLs, CardDAV address books, and the ntfy, Discord and Gotify notification channels. To stop those being used to reach services on the server's own network (including the cloud metadata endpoint), Candlr only connects to **public** addresses. Anything on a private or internal network, such as `localhost`, `192.168.x.x`, `10.x.x.x` or a Docker container, is refused until an admin allows it.
+
+Allow what you need with `INTERNAL_IP_ALLOW_LIST`, a comma separated list of entries:
+
+| Entry | Allows |
+|---|---|
+| `10.0.0.5` | that address, on any port |
+| `10.0.0.5:3001` | that address, on that port only |
+| `192.168.1.0/24` | every address in the network (`192.168.1.0/24:8080` limits it to a port) |
+| `gotify:80` | the hostname `gotify` (a Docker service name, say) on that port; use it where container addresses change |
+| `[fd00::5]:8080` | an IPv6 address, with an optional port |
+
+For example, `INTERNAL_IP_ALLOW_LIST=10.0.0.5:3001,gotify:80,192.168.1.0/24`. Entries with no port allow any port, and URLs without a port use 80 for `http` and 443 for `https`. A hostname entry matches the name in the URL, and the other entries match the address that name resolves to; every address it resolves to has to pass. Link-local addresses (`169.254.x.x`, `fe80::/10`) are never allowed, even if listed. Entries that can't be parsed are ignored with a warning in the log. Users who enter a blocked URL see a message naming the entry to add.
+
+This is a breaking change for instances where a ntfy, Discord or Gotify server, address book or photo host sits on a private address: add it to the list when upgrading. The check happens when a channel or address book is saved and again when it is used. A hostname is resolved by the check and again when the connection is made, so a DNS answer that changes between the two (DNS rebinding) is not covered.
 
 ## Notifications
 

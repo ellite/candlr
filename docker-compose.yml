@@ -33,9 +33,12 @@ services:
       # - OIDC_DISABLE_PASSWORD_LOGIN=false
       # - OIDC_TRUST_PROVIDER_2FA=false  # true = SSO logins skip Candlr's 2FA code (use only if the provider enforces MFA)
 
-      # CardDAV address book sync (optional). Needed when your address book is on
-      # a private address, such as a Radicale or Nextcloud on your LAN.
-      # - CARDDAV_ALLOW_PRIVATE_HOSTS=true
+      # Internal services users may point Candlr at (photo URLs, CardDAV, ntfy,
+      # Discord, Gotify). Private and internal addresses are refused unless listed:
+      # an address, address:port, network, or hostname[:port], comma separated.
+      # - INTERNAL_IP_ALLOW_LIST=10.0.0.5:3001,192.168.1.0/24,gotify:80
+
+      # CardDAV address book sync interval (optional).
       # - CARDDAV_SYNC_INTERVAL_MINUTES=360  # 0 = only sync when asked
 
       # SMTP (optional) - powers the email notification channel and, once

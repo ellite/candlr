@@ -61,12 +61,14 @@ class Settings(BaseSettings):
     # File storage root - override with DATA_DIR in production if needed.
     data_dir: Path = Path(__file__).parent.parent / "data"
 
-    # CardDAV address book sync. Servers on private addresses (a Radicale or
-    # Nextcloud on the LAN, or in another container) are refused unless this
-    # is set, since users could otherwise point Candlr at internal services.
-    carddav_allow_private_hosts: bool = False
-    # How often the worker syncs each connected address book; 0 turns the
-    # background sync off (the "Sync now" button still works).
+    # URLs users can enter (photo URLs, CardDAV address books, ntfy / Discord /
+    # Gotify servers) may not point at private or internal addresses unless
+    # listed here, comma separated: 10.0.0.5, 10.0.0.5:3001, 192.168.1.0/24,
+    # gotify:80. See netguard.py.
+    internal_ip_allow_list: str = ""
+
+    # How often the worker syncs each connected CardDAV address book; 0 turns
+    # the background sync off (the "Sync now" button still works).
     carddav_sync_interval_minutes: int = 360
 
     # IANA timezone name used to compute "today" (dashboard grouping, days-until

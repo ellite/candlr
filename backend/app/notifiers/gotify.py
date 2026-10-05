@@ -1,5 +1,6 @@
 import httpx
 
+from ..netguard import UnsafeURLError, check_outbound_url
 from .errors import NotifierError
 
 MAX_PRIORITY = 10
@@ -37,6 +38,11 @@ def send(title: str, body: str, config: dict) -> None:
         server, app_token, priority = parse_config(config)
     except ValueError as e:
         raise NotifierError(str(e)) from None
+
+    try:
+        check_outbound_url(server)
+    except UnsafeURLError as e:
+        raise NotifierError(f"Gotify server: {e}") from None
 
     payload = {"title": title, "message": body}
     if priority is not None:
