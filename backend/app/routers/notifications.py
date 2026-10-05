@@ -5,7 +5,7 @@ from ..config import settings
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import NotificationChannel, PushSubscription, User
-from ..notifiers import dispatch
+from ..notifiers import dispatch, gotify
 from ..notifiers.errors import NotifierError
 from ..schemas import (
     NotificationChannelOut,
@@ -39,15 +39,11 @@ def _validate_config(channel: str, config: dict) -> None:
         (config.get("user_key") or "").strip() and (config.get("api_token") or "").strip()
     ):
         raise HTTPException(status_code=400, detail="Pushover user key and API token are required")
-    if channel == "gotify" and not (
-        (config.get("server") or "").strip() and (config.get("app_token") or "").strip()
-    ):
-        raise HTTPException(status_code=400, detail="Gotify server URL and app token are required")
     if channel == "gotify":
-        raw_priority = config.get("priority")
-        priority = "" if raw_priority is None else str(raw_priority).strip()
-        if priority and not (priority.isdigit() and 0 <= int(priority) <= 10):
-            raise HTTPException(status_code=400, detail="Gotify priority must be a whole number from 0 to 10")
+        try:
+            gotify.parse_config(config)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 
 def _get_channel_row(db: Session, user_id: int, channel: str) -> NotificationChannel | None:
