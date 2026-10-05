@@ -24,4 +24,4 @@ cd /app/backend
 gosu candlr alembic upgrade head
 
 echo "Starting Candlr (frontend :4258, backend 127.0.0.1:${BACKEND_PORT})..."
-exec gosu candlr /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
+exec gosu candlr supervisord -n -c /etc/supervisor/conf.d/candlr.conf
