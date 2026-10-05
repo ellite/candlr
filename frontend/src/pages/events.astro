@@ -6,6 +6,7 @@ import { apiJson } from "../lib/api";
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
 import type { EventType, Person } from "../lib/events";
+import { cadenceLabel, isYearly } from "../lib/dates.js";
 
 // Fired concurrently rather than awaited one at a time - these three don't
 // depend on each other's results, only on the shared cookie, so a serial
@@ -166,7 +167,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         <div>
           <label class="label" for="form-event-type">Event type</label>
           <select id="form-event-type" class="select">
-            {eventTypes.map((et) => <option value={et.id}>{et.name}</option>)}
+            {eventTypes.map((et) => <option value={et.id}>{et.name}{isYearly(et) ? "" : ` (${cadenceLabel(et)})`}</option>)}
           </select>
         </div>
 
@@ -187,6 +188,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
             <input type="checkbox" id="form-year-unknown" />
             I don't know (or don't want to enter) the year
           </label>
+          <p id="form-cadence-hint" class="hidden text-xs text-zinc-600 dark:text-zinc-300 mt-2"></p>
         </div>
 
         <div>
@@ -264,7 +266,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     import { initImageEditor } from "../lib/imageEditor.js";
     import { createPersonDetail } from "../lib/personDetail.js";
     import { escapeHtml, avatarHtml } from "../lib/avatar.js";
-    import { ageLabel, dueLabel, highlightNumber } from "../lib/dates.js";
+    import { ageLabel, cadenceLabel, dueLabel, highlightNumber, isYearly, needsStartYear } from "../lib/dates.js";
 import { cardBellHtml } from "../lib/reminders.js";
     import { lockScroll, unlockScroll } from "../lib/scrollLock.js";
 
@@ -594,6 +596,7 @@ import { cardBellHtml } from "../lib/reminders.js";
     const formDay = document.getElementById("form-day");
     const formYear = document.getElementById("form-year");
     const formYearUnknown = document.getElementById("form-year-unknown");
+    const formCadenceHint = document.getElementById("form-cadence-hint");
     const formNotes = document.getElementById("form-notes");
     const formNotify = document.getElementById("form-notify");
     const formImageFields = document.getElementById("form-image-fields");
@@ -645,6 +648,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       formYearUnknown.checked = false;
       formNotes.value = "";
       formNotify.checked = true;
+      syncCadence();
       formImageFile.value = "";
       formImageUrl.value = "";
       pendingImageSourceBlob = null;
@@ -716,6 +720,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       formYear.disabled = !ev.year_known;
       formNotes.value = ev.notes ?? "";
       formNotify.checked = ev.notify ?? true;
+      syncCadence();
       [...formDateButtons.children].forEach((button, index) => {
         button.setAttribute("aria-pressed", String(index === selectedEventIndex));
         button.classList.toggle("ring-2", index === selectedEventIndex);
@@ -731,6 +736,25 @@ import { cardBellHtml } from "../lib/reminders.js";
       previewObjectUrl = null;
       if (formContext.personId && personDetail.current) personDetail.show();
     }
+
+    // A type that repeats on anything but "every year" or "every month" counts
+    // from the date itself, so the year can't be left out.
+    function syncCadence() {
+      const type = eventTypes.find((t) => t.id === Number(formEventType.value));
+      if (!type) return;
+      const strict = needsStartYear(type);
+      if (strict) {
+        formYearUnknown.checked = false;
+        formYear.disabled = false;
+      }
+      formYearUnknown.disabled = strict;
+      formYearUnknown.closest("label").classList.toggle("opacity-50", strict);
+      formCadenceHint.classList.toggle("hidden", isYearly(type));
+      formCadenceHint.textContent = isYearly(type)
+        ? ""
+        : `Repeats ${cadenceLabel(type)}, counting from this date.${strict ? " The year is required." : ""}`;
+    }
+    formEventType.addEventListener("change", syncCadence);
 
     formYearUnknown.addEventListener("change", () => {
       formYear.disabled = formYearUnknown.checked;

@@ -16,6 +16,7 @@ from typing import Optional
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, joinedload
 
+from .events_logic import MAX_INTERVAL, UNITS, start_year_problem
 from .models import Event, EventType, Person
 from .schemas import EventInput
 
@@ -47,6 +48,9 @@ class ParsedEvent:
 class ParsedFile:
     # Keyed by lowercased name so same-named rows land on one card.
     people: dict[str, tuple[str, list[ParsedEvent]]] = field(default_factory=dict)
+    # Cadence (interval, unit) for event types a JSON file defines, keyed by
+    # lowercased name. Only used when the import has to create the type.
+    type_cadences: dict[str, tuple[int, str]] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     skipped: int = 0
 
@@ -83,7 +87,7 @@ def export_json(people: list[Person], event_types: list[EventType]) -> str:
     payload = {
         "version": 1,
         "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "event_types": [et.name for et in event_types],
+        "event_types": [{"name": et.name, "interval": et.interval, "unit": et.unit} for et in event_types],
         "people": [
             {
                 "name": person.name,
@@ -229,6 +233,12 @@ def parse_json(text: str) -> ParsedFile:
         raise ImportFormatError("The JSON needs a top-level 'people' list")
 
     parsed = ParsedFile()
+    for entry in data.get("event_types") or []:
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+            continue
+        interval, unit = entry.get("interval", 1), entry.get("unit", "year")
+        if isinstance(interval, int) and not isinstance(interval, bool) and 1 <= interval <= MAX_INTERVAL and unit in UNITS:
+            parsed.type_cadences[entry["name"].strip().lower()] = (interval, unit)
     for index, person in enumerate(people, start=1):
         label = f"Person {index}"
         if not isinstance(person, dict):
@@ -396,8 +406,14 @@ def apply_import(db: Session, user_id: int, parsed: ParsedFile) -> ImportResult:
             if event.type_name:
                 event_type = types_by_name.get(event.type_name.lower())
                 if not event_type:
+                    interval, unit = parsed.type_cadences.get(event.type_name.lower(), (1, "year"))
                     event_type = EventType(
-                        user_id=user_id, name=event.type_name, is_default=False, sort_order=next_order
+                        user_id=user_id,
+                        name=event.type_name,
+                        is_default=False,
+                        sort_order=next_order,
+                        interval=interval,
+                        unit=unit,
                     )
                     db.add(event_type)
                     db.flush()
@@ -408,6 +424,13 @@ def apply_import(db: Session, user_id: int, parsed: ParsedFile) -> ImportResult:
                 event_type = default_type
             else:
                 result.events_skipped += 1
+                continue
+
+            problem = start_year_problem(event_type.interval, event_type.unit, event.year is not None)
+            if problem:
+                result.invalid_rows += 1
+                if len(result.errors) < MAX_ERRORS_REPORTED:
+                    result.errors.append(f"{name!r} ({event_type.name}): {problem}")
                 continue
 
             slot = (event_type.id, event.month, event.day)

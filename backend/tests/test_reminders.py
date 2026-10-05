@@ -50,6 +50,37 @@ class ReminderTests(unittest.TestCase):
         with self.sessions() as db:
             self.assertTrue(all(row.sent_at for row in db.query(ReminderDelivery)))
 
+    def test_monthly_type_reminds_every_month_with_month_count(self):
+        with self.sessions() as db:
+            db.get(EventType, 1).unit = "month"
+            event = db.get(Event, 1)
+            event.month, event.day, event.year = 3, 16, 2026
+            db.commit()
+        self.run_scan()
+        self.assertEqual(self.sender.call_count, 2)
+        self.assertIn("(6 months)", self.sender.call_args.args[5])
+        self.sender.reset_mock()
+        self.run_scan(self.now + timedelta(days=1))
+        self.sender.assert_not_called()  # the 17th is not the 16th
+        self.run_scan(self.now + timedelta(days=30))
+        self.assertEqual(self.sender.call_count, 2)  # Oct 16
+
+    def test_every_n_days_type_reminds_only_on_its_days(self):
+        with self.sessions() as db:
+            event_type = db.get(EventType, 1)
+            event_type.interval, event_type.unit = 10, "day"
+            event = db.get(Event, 1)
+            event.month, event.day, event.year = 9, 6, 2026  # Sep 6, Sep 16, Sep 26 ...
+            db.commit()
+        self.run_scan()
+        self.assertEqual(self.sender.call_count, 2)
+        self.assertIn("(10 days)", self.sender.call_args.args[5])
+        self.sender.reset_mock()
+        self.run_scan(self.now + timedelta(days=5))
+        self.sender.assert_not_called()
+        self.run_scan(self.now + timedelta(days=10))
+        self.assertEqual(self.sender.call_count, 2)
+
     def test_same_day_catchup_and_no_previous_day_backlog(self):
         self.run_scan(self.now + timedelta(hours=12))
         self.assertEqual(self.sender.call_count, 2)

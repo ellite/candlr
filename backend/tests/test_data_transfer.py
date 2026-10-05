@@ -90,7 +90,10 @@ class DataTransferTests(unittest.TestCase):
         res = self.client.get("/data/export?format=json")
         self.assertEqual(res.status_code, 200)
         self.assertIn("attachment", res.headers["content-disposition"])
-        self.assertEqual(json.loads(res.text)["event_types"], ["Birthday", "Anniversary", "Graduation"])
+        self.assertEqual(
+            json.loads(res.text)["event_types"],
+            [{"name": n, "interval": 1, "unit": "year"} for n in ["Birthday", "Anniversary", "Graduation"]],
+        )
 
         self.current_user_id = 2
         out = self._upload("candlr.json", res.text).json()
@@ -161,6 +164,34 @@ class DataTransferTests(unittest.TestCase):
         self.current_user_id = 2
         rows = list(csv.reader(io.StringIO(self.client.get("/data/export?format=csv").text.lstrip("﻿"))))
         self.assertEqual(len(rows), 1)  # header only
+
+    def test_json_carries_type_cadence_and_creates_types_with_it(self):
+        with self.sessions() as db:
+            kind = EventType(user_id=1, name="Check-in", sort_order=5, interval=3, unit="week")
+            db.add(kind)
+            db.flush()
+            person = Person(user_id=1, name="Pat")
+            db.add(person)
+            db.flush()
+            db.add(Event(person_id=person.id, event_type_id=kind.id, month=3, day=8, year=2026))
+            db.commit()
+        exported = self.client.get("/data/export?format=json").text
+        self.assertIn({"name": "Check-in", "interval": 3, "unit": "week"}, json.loads(exported)["event_types"])
+        self.current_user_id = 2
+        self.assertEqual(self._upload("c.json", exported).json()["event_types_created"], 1)
+        with self.sessions() as db:
+            kind = db.query(EventType).filter_by(user_id=2, name="Check-in").one()
+            self.assertEqual((kind.interval, kind.unit), (3, "week"))
+
+    def test_events_without_a_year_are_rejected_for_types_that_need_one(self):
+        with self.sessions() as db:
+            db.add(EventType(user_id=1, name="Check-in", sort_order=5, interval=2, unit="month"))
+            db.commit()
+        csv_text = "name,type,month,day,year\nNoYear,Check-in,3,8,\nDated,Check-in,3,8,2026\nBirthday,Birthday,1,2,\n"
+        body = self._upload("a.csv", csv_text).json()
+        self.assertEqual((body["people_created"], body["events_added"], body["invalid_rows"]), (2, 2, 1))
+        self.assertIn("full start date", body["errors"][0])
+        self.assertNotIn("NoYear", [r[0] for r in self._snapshot(1)])
 
     def test_vcf_import_maps_birthdays_and_anniversaries(self):
         vcf = (

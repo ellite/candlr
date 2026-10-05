@@ -4,7 +4,7 @@ import { apiJson } from "../lib/api";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
-type EventType = { id: number; name: string; is_default: boolean };
+type EventType = { id: number; name: string; is_default: boolean; interval: number; unit: "day" | "week" | "month" | "year" };
 type EventOut = {
   id: number;
   event_type: EventType;
@@ -139,22 +139,14 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
   </script>
   <script>
     import { avatarHtml, escapeHtml } from "../lib/avatar.js";
-    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber } from "../lib/dates.js";
+    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber, occursOn } from "../lib/dates.js";
     import { lockScroll, unlockScroll } from "../lib/scrollLock.js";
 
     const people = window.__CANDLR_PEOPLE__;
 
-    // "month-day" -> [{ person, event }], deliberately ignoring year: a
-    // birthday or anniversary lands on the same calendar cell every time
-    // that month/day comes around, whichever year is currently in view.
-    const eventsByDay = new Map();
-    for (const person of people) {
-      for (const event of person.events) {
-        const key = `${event.month}-${event.day}`;
-        if (!eventsByDay.has(key)) eventsByDay.set(key, []);
-        eventsByDay.get(key).push({ person, event });
-      }
-    }
+    // Every date; which ones land on a given day depends on its type's cadence
+    // (see occursOn in lib/dates.js).
+    const allEntries = people.flatMap((person) => person.events.map((event) => ({ person, event })));
 
     const today = new Date();
     let viewYear = today.getFullYear();
@@ -224,9 +216,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           cellDay === today.getDate();
         // Skip events that haven't happened yet as of this cell's year -
         // a birthday shouldn't appear on the calendar before it occurred.
-        const entries = (eventsByDay.get(`${cellMonth}-${cellDay}`) || []).filter(
-          ({ event }) => !event.year_known || !event.year || cellYear >= event.year
-        );
+        const entries = allEntries.filter(({ event }) => occursOn(event, cellYear, cellMonth, cellDay));
 
         const cell = document.createElement(entries.length ? "button" : "div");
         if (entries.length) cell.type = "button";
@@ -277,7 +267,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         row.href = `/events?open=${person.id}`;
         row.className =
           "flex items-center gap-3 p-2.5 rounded-lg hover:bg-stone-50 dark:hover:bg-white/5 transition-colors";
-        const age = ageLabelForOccurrence(event, year, today);
+        const age = ageLabelForOccurrence(event, new Date(year, month - 1, day), today);
         row.innerHTML = `
           ${avatarHtml(person, "w-9 h-9 text-xs")}
           <div class="min-w-0 flex-1">

@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 from .database import SessionLocal
-from .events_logic import next_occurrence
+from .events_logic import elapsed, occurs_on
 from .models import Event, Person, User, NotificationChannel, ReminderDelivery
 from .notifiers import dispatch
 
@@ -29,6 +29,12 @@ def message(event, today):
     name = event.person.name
     kind = event.event_type.name
     years = today.year - event.year if event.year_known and event.year is not None else None
+    event_type = event.event_type
+    if (event_type.interval, event_type.unit) != (1, "year") and years is not None:
+        count = elapsed(event.month, event.day, event.year, event_type.unit, today)
+        if count > 0:
+            unit = event_type.unit if count == 1 else f"{event_type.unit}s"
+            return f"{kind} reminder", f"{name}'s {kind.lower()} is today ({count} {unit})."
     if kind.lower() == "birthday" and years is not None and years > 0:
         body = f"{name} turns {years} today."
     else:
@@ -73,7 +79,7 @@ def run_once(session_factory=SessionLocal, now=None, sender=None):
                     continue
                 if local.strftime("%H:%M") < user.notify_time:
                     continue
-                if next_occurrence(event.month, event.day, today) != today:
+                if not occurs_on(event.month, event.day, today, **event.cadence):
                     continue
                 key = dict(event_id=event_id, occurrence_date=today, channel=channel.channel)
                 delivery = db.query(ReminderDelivery).filter_by(**key).first()

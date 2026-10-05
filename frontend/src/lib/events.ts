@@ -1,4 +1,6 @@
-export type EventType = { id: number; name: string; is_default: boolean };
+export type EventUnit = "day" | "week" | "month" | "year";
+// How often dates of this type come around: every `interval` `unit`s.
+export type EventType = { id: number; name: string; is_default: boolean; interval: number; unit: EventUnit };
 export type EventOut = {
   id: number;
   event_type: EventType;

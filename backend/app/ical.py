@@ -50,16 +50,30 @@ def _stamp(value) -> str:
     return value.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+def _recurrence_rule(event) -> str:
+    interval, unit = event.event_type.interval, event.event_type.unit
+    every = f";INTERVAL={interval}" if interval > 1 else ""
+    if unit == "day":
+        return f"FREQ=DAILY{every}"
+    if unit == "week":
+        return f"FREQ=WEEKLY{every}"
+    if unit == "month":
+        if event.day > 28:
+            # Days past the end of a short month fall back to its last day.
+            return f"FREQ=MONTHLY{every};BYMONTHDAY={event.day},-1;BYSETPOS=1"
+        return f"FREQ=MONTHLY{every}"
+    if event.month == 2 and event.day == 29:
+        # Candlr shows Feb 29 on Feb 28 in non-leap years, so the feed does
+        # the same: the last of the two candidate days that exists that year.
+        return f"FREQ=YEARLY{every};BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1"
+    return f"FREQ=YEARLY{every}"
+
+
 def _event_lines(person: Person, event, user_id: int) -> list[str]:
     year = event.year if event.year_known and event.year else REFERENCE_YEAR
     start = date(year, event.month, event.day)
     end = start + timedelta(days=1)
-    if event.month == 2 and event.day == 29:
-        # Candlr shows Feb 29 on Feb 28 in non-leap years, so the feed does
-        # the same: the last of the two candidate days that exists that year.
-        rule = "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1"
-    else:
-        rule = "FREQ=YEARLY"
+    rule = _recurrence_rule(event)
     summary = f"{person.name}'s {event.event_type.name}"
     lines = [
         "BEGIN:VEVENT",

@@ -55,7 +55,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-1">Events</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        The kinds of dates you can track. Birthday and Anniversary are built in and cannot be deleted. Add your own too.
+        The kinds of dates you can track, and how often each comes around. Birthday and Anniversary are built in, repeat every year, and cannot be deleted. Add your own, repeating as often as you like: every year, every month, every 37 days, every 5 years.
       </p>
 
       <ul id="event-type-list" class="space-y-1.5 mb-4">
@@ -73,6 +73,11 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
               </svg>
             </button>
             <span class="text-sm flex-1 truncate">{et.name}</span>
+            {!(et.interval === 1 && et.unit === "year") && (
+              <span class="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
+                {et.interval === 1 ? `every ${et.unit}` : `every ${et.interval} ${et.unit}s`}
+              </span>
+            )}
             {!et.is_default && <button
               class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1"
               data-delete-event-type={et.id}
@@ -89,10 +94,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       </ul>
 
       <div id="event-type-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
-      <div class="flex gap-2 max-w-sm">
-        <input id="new-event-type" class="input" type="text" placeholder="e.g. Graduation" maxlength="64" />
-        <button id="add-event-type-btn" class="btn-secondary flex-shrink-0">Add</button>
-      </div>
+      <button id="open-add-event-type-btn" type="button" class="btn-secondary">Add event type</button>
     </section>
 
     <TwoFactorSettings hasPassword={user.has_password} />
@@ -360,6 +362,44 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     </section>
   </main>
 
+  <div id="add-event-type-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div id="add-event-type-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full min-w-0 max-w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl min-h-[min(30rem,92dvh)] max-h-[92dvh] overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="add-event-type-title">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="add-event-type-title" class="text-base font-semibold">Add an event type</h2>
+        <button type="button" id="add-event-type-close-btn" class="icon-button btn-ghost p-1.5" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="new-event-type-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="new-event-type">Name</label>
+          <input id="new-event-type" class="input" type="text" placeholder="e.g. Graduation" maxlength="64" />
+        </div>
+        <div>
+          <label class="label" for="new-event-type-interval">Repeats every</label>
+          <div class="flex items-center gap-2">
+            <input id="new-event-type-interval" class="input w-24 flex-shrink-0" type="number" min="1" max="1000" value="1" />
+            <select id="new-event-type-unit" class="select flex-1 min-w-0" aria-label="Repeat unit">
+              <option value="day">day(s)</option>
+              <option value="week">week(s)</option>
+              <option value="month">month(s)</option>
+              <option value="year" selected>year(s)</option>
+            </select>
+          </div>
+          <p id="new-event-type-hint" class="hidden text-xs text-zinc-600 dark:text-zinc-300 mt-2"></p>
+        </div>
+      </div>
+      <div class="flex gap-2 justify-end mt-5">
+        <button id="add-event-type-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="add-event-type-btn" type="button" class="btn-primary">Add</button>
+      </div>
+    </div>
+  </div>
+
   <div id="delete-event-type-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="delete-event-type-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
@@ -480,10 +520,57 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     const eventTypeList = document.getElementById("event-type-list");
     const newEventTypeInput = document.getElementById("new-event-type");
     const addEventTypeBtn = document.getElementById("add-event-type-btn");
+    const addEventTypeModal = document.getElementById("add-event-type-modal");
+    const newEventTypeError = document.getElementById("new-event-type-error");
+
+    const newEventTypeInterval = document.getElementById("new-event-type-interval");
+    const newEventTypeUnit = document.getElementById("new-event-type-unit");
+    const newEventTypeHint = document.getElementById("new-event-type-hint");
+
+    // Warns that anything but every 1 year / 1 month counts from a full start date.
+    function syncNewEventTypeCadence() {
+      const interval = Number(newEventTypeInterval.value);
+      const needsYear = !(interval === 1 && ["month", "year"].includes(newEventTypeUnit.value));
+      newEventTypeHint.classList.toggle("hidden", !needsYear);
+      newEventTypeHint.textContent = needsYear
+        ? "Dates of this type count from their start date, so they need a full date including the year."
+        : "";
+    }
+    newEventTypeInterval?.addEventListener("input", syncNewEventTypeCadence);
+    newEventTypeUnit?.addEventListener("change", syncNewEventTypeCadence);
+
+    function openAddEventTypeModal() {
+      newEventTypeInput.value = "";
+      newEventTypeInterval.value = "1";
+      newEventTypeUnit.value = "year";
+      newEventTypeError.classList.add("hidden");
+      syncNewEventTypeCadence();
+      addEventTypeModal.classList.remove("hidden");
+      newEventTypeInput.focus();
+    }
+
+    function closeAddEventTypeModal() {
+      if (addEventTypeBtn.disabled) return;
+      addEventTypeModal.classList.add("hidden");
+    }
+
+    document.getElementById("open-add-event-type-btn")?.addEventListener("click", () => {
+      eventTypeError.classList.add("hidden");
+      openAddEventTypeModal();
+    });
+    document.getElementById("add-event-type-cancel-btn")?.addEventListener("click", closeAddEventTypeModal);
+    document.getElementById("add-event-type-close-btn")?.addEventListener("click", closeAddEventTypeModal);
+    document.getElementById("add-event-type-backdrop")?.addEventListener("click", closeAddEventTypeModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !addEventTypeModal.classList.contains("hidden")) closeAddEventTypeModal();
+    });
 
     function eventTypeRowHtml(et) {
       const name = document.createElement("div");
       name.textContent = et.name;
+      const cadence = et.interval === 1 && et.unit === "year"
+        ? ""
+        : `<span class="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">${et.interval === 1 ? `every ${et.unit}` : `every ${et.interval} ${et.unit}s`}</span>`;
       return `
         <li class="flex items-center gap-2 px-2 py-2 rounded-lg bg-stone-50 dark:bg-white/5" data-event-type-id="${et.id}">
           <button type="button" class="icon-button text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1" data-drag-handle aria-label="Drag to reorder">
@@ -493,6 +580,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
             </svg>
           </button>
           <span class="text-sm flex-1 truncate">${name.innerHTML}</span>
+          ${cadence}
           ${!et.is_default ? `<button class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${name.innerHTML}" title="Delete" aria-label="Delete ${name.innerHTML}">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -503,35 +591,48 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     async function addEventType() {
       const name = newEventTypeInput.value.trim();
-      eventTypeError.classList.add("hidden");
-      if (!name) return;
+      newEventTypeError.classList.add("hidden");
+      if (!name) {
+        newEventTypeError.textContent = "Name is required";
+        newEventTypeError.classList.remove("hidden");
+        return;
+      }
+      const interval = Number(newEventTypeInterval.value);
+      if (!Number.isInteger(interval) || interval < 1 || interval > 1000) {
+        newEventTypeError.textContent = "Repeat interval must be a whole number from 1 to 1000";
+        newEventTypeError.classList.remove("hidden");
+        return;
+      }
 
       addEventTypeBtn.disabled = true;
       try {
         const res = await fetch("/api/event-types", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name, interval, unit: newEventTypeUnit.value }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Could not add event type");
+          throw new Error(data.detail?.[0]?.msg || data.detail || "Could not add event type");
         }
         const created = await res.json();
         eventTypeList.insertAdjacentHTML("beforeend", eventTypeRowHtml(created));
-        newEventTypeInput.value = "";
+        addEventTypeBtn.disabled = false;
+        closeAddEventTypeModal();
       } catch (e) {
-        eventTypeError.textContent = e.message;
-        eventTypeError.classList.remove("hidden");
+        newEventTypeError.textContent = e.message;
+        newEventTypeError.classList.remove("hidden");
       } finally {
         addEventTypeBtn.disabled = false;
       }
     }
 
     addEventTypeBtn?.addEventListener("click", addEventType);
-    newEventTypeInput?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") addEventType();
-    });
+    for (const input of [newEventTypeInput, newEventTypeInterval]) {
+      input?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addEventType();
+      });
+    }
 
     const deleteEventTypeModal = document.getElementById("delete-event-type-modal");
     const deleteEventTypeName = document.getElementById("delete-event-type-name");
@@ -959,6 +1060,11 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
   <script>
     import { initDragReorder } from "../lib/dragReorder.js";
+    import { enhanceSelects } from "../lib/customSelect.js";
+
+    // Swaps the native unit select in the add-event-type sheet for the app's
+    // styled dropdown (the native one is visually hidden by .select).
+    enhanceSelects();
 
     const eventTypeList = document.getElementById("event-type-list");
     if (eventTypeList) {

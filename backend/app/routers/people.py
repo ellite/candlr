@@ -8,7 +8,7 @@ from ..auth import verify_password
 from ..config import settings
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..events_logic import days_until
+from ..events_logic import start_year_problem
 from ..images import ImageError, download_image, normalize_image, save_image, delete_image
 from ..models import Event, EventType, Person, User
 from ..schemas import (
@@ -30,6 +30,12 @@ def _get_event_type(db: Session, user_id: int, event_type_id: int) -> EventType:
     if not event_type:
         raise HTTPException(status_code=400, detail="Unknown event type")
     return event_type
+
+
+def _check_fits_type(event_type: EventType, event: EventInput) -> None:
+    problem = start_year_problem(event_type.interval, event_type.unit, event.year is not None and event.year_known)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
 
 
 def _get_person(db: Session, user_id: int, person_id: int) -> Person:
@@ -71,7 +77,7 @@ def list_people(
     if sort == "name":
         people.sort(key=lambda p: p.name.lower())
     else:
-        people.sort(key=lambda p: min((days_until(e.month, e.day) for e in p.events), default=9999))
+        people.sort(key=lambda p: min((e.days_until for e in p.events), default=9999))
     return people
 
 
@@ -118,12 +124,15 @@ def bulk_people(data: BulkRequest, current_user: User = Depends(get_current_user
         if data.from_event_type_id == data.to_event_type_id:
             raise HTTPException(status_code=400, detail="Choose two different event types")
         _get_event_type(db, current_user.id, data.from_event_type_id)
-        _get_event_type(db, current_user.id, data.to_event_type_id)
+        to_type = _get_event_type(db, current_user.id, data.to_event_type_id)
         changed_people = set()
         changed_dates = 0
         for person in people:
             for event in person.events:
                 if event.event_type_id == data.from_event_type_id:
+                    problem = start_year_problem(to_type.interval, to_type.unit, event.year_known and event.year is not None)
+                    if problem:
+                        raise HTTPException(status_code=400, detail=f"{person.name}: {problem}")
                     event.event_type_id = data.to_event_type_id
                     changed_people.add(person.id)
                     changed_dates += 1
@@ -141,7 +150,7 @@ def bulk_people(data: BulkRequest, current_user: User = Depends(get_current_user
 
 @router.post("/people", response_model=PersonOut, status_code=201)
 def create_person(data: PersonCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    _get_event_type(db, current_user.id, data.event.event_type_id)
+    _check_fits_type(_get_event_type(db, current_user.id, data.event.event_type_id), data.event)
 
     person = Person(user_id=current_user.id, name=data.name.strip())
     db.add(person)
@@ -171,7 +180,7 @@ def update_person(
             raise HTTPException(status_code=400, detail="Invalid card dates")
         # Validate ownership and event types before changing any fields.
         for event_data in data.events:
-            _get_event_type(db, current_user.id, event_data.event_type_id)
+            _check_fits_type(_get_event_type(db, current_user.id, event_data.event_type_id), event_data)
         for event_data in data.events:
             for field, value in event_data.model_dump(exclude={"id"}).items():
                 setattr(events_by_id[event_data.id], field, value)
@@ -195,7 +204,7 @@ def add_event(
     person_id: int, data: EventInput, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     person = _get_person(db, current_user.id, person_id)
-    _get_event_type(db, current_user.id, data.event_type_id)
+    _check_fits_type(_get_event_type(db, current_user.id, data.event_type_id), data)
     db.add(Event(person_id=person.id, **data.model_dump()))
     db.commit()
     return _get_person(db, current_user.id, person_id)
@@ -206,7 +215,7 @@ def update_event(
     event_id: int, data: EventInput, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     event = _get_event(db, current_user.id, event_id)
-    _get_event_type(db, current_user.id, data.event_type_id)
+    _check_fits_type(_get_event_type(db, current_user.id, data.event_type_id), data)
     for field, value in data.model_dump().items():
         setattr(event, field, value)
     db.commit()

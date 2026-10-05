@@ -123,6 +123,32 @@ class CalendarFeedTests(unittest.TestCase):
             self.assertLessEqual(len(line.encode("utf-8")), 75)
         self.assertIn(note.strip().replace(",", "\\,"), unfold(res.text))
 
+    def test_type_cadence_sets_the_recurrence_rule(self):
+        cadences = [(1, "month", 8), (1, "month", 31), (3, "week", 8), (37, "day", 8), (5, "year", 8), (2, "month", 29)]
+        with self.sessions() as db:
+            person = Person(user_id=1, name="Cadence")
+            db.add(person)
+            db.flush()
+            for index, (interval, unit, day) in enumerate(cadences):
+                kind = EventType(user_id=1, name=f"Type {index}", sort_order=10 + index, interval=interval, unit=unit)
+                db.add(kind)
+                db.flush()
+                db.add(Event(person_id=person.id, event_type_id=kind.id, month=3, day=day, year=2026))
+            db.commit()
+        _, res = self._feed()
+        rules = [line for line in unfold(res.text).split("\r\n") if line.startswith("RRULE:")]
+        self.assertEqual(
+            rules,
+            [
+                "RRULE:FREQ=MONTHLY",
+                "RRULE:FREQ=WEEKLY;INTERVAL=3",
+                "RRULE:FREQ=DAILY;INTERVAL=37",
+                "RRULE:FREQ=YEARLY;INTERVAL=5",
+                "RRULE:FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=29,-1;BYSETPOS=1",
+                "RRULE:FREQ=MONTHLY;BYMONTHDAY=31,-1;BYSETPOS=1",
+            ],
+        )
+
     def test_fold_line_short_line_untouched(self):
         self.assertEqual(fold_line("SUMMARY:short"), "SUMMARY:short")
 

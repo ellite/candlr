@@ -3,6 +3,8 @@ from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing import Annotated, Optional, Literal, Union
 from datetime import datetime
 
+from .events_logic import MAX_INTERVAL
+
 
 # Auth
 class UserRegister(BaseModel):
@@ -123,12 +125,25 @@ class VapidPublicKeyOut(BaseModel):
 # Events
 class EventTypeCreate(BaseModel):
     name: str = Field(min_length=1, max_length=64)
+    interval: int = Field(default=1, ge=1, le=MAX_INTERVAL)
+    unit: Literal["day", "week", "month", "year"] = "year"
+
+
+class EventTypeUpdate(BaseModel):
+    """Fields left out keep their current value, so a rename doesn't reset
+    the cadence."""
+
+    name: str = Field(min_length=1, max_length=64)
+    interval: Optional[int] = Field(default=None, ge=1, le=MAX_INTERVAL)
+    unit: Optional[Literal["day", "week", "month", "year"]] = None
 
 
 class EventTypeOut(BaseModel):
     id: int
     name: str
     is_default: bool
+    interval: int
+    unit: str
 
     model_config = {"from_attributes": True}
 

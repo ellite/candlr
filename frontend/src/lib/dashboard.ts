@@ -1,3 +1,4 @@
+import { elapsedUnits, isYearly } from "./dates.js";
 import type { EventOut, Person } from "./events";
 
 export type DashboardEntry = { person: Person; event: EventOut };
@@ -23,6 +24,10 @@ export function milestone(event: EventOut, today = new Date(), daysOffset = even
   if (!event.year_known || event.year === null) return "";
   const occurrence = new Date(today);
   occurrence.setDate(occurrence.getDate() + daysOffset);
+  if (!isYearly(event.event_type)) {
+    const count = elapsedUnits(event, occurrence);
+    return count > 0 ? `${count} ${event.event_type.unit}${count === 1 ? "" : "s"}` : "";
+  }
   const years = occurrence.getFullYear() - event.year;
   if (years < 0) return "";
   return event.event_type.name.toLowerCase() === "birthday"

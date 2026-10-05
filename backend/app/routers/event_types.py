@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..models import EventType, User
-from ..schemas import EventTypeCreate, EventTypeOut, EventTypeReorder
+from ..events_logic import cadence_label, needs_start_year
+from ..models import Event, EventType, User
+from ..schemas import EventTypeCreate, EventTypeOut, EventTypeReorder, EventTypeUpdate
 
 router = APIRouter(prefix="/event-types", tags=["event-types"])
 
@@ -33,6 +34,8 @@ def create_event_type(
         name=data.name.strip(),
         is_default=False,
         sort_order=(max_order if max_order is not None else -1) + 1,
+        interval=data.interval,
+        unit=data.unit,
     )
     db.add(event_type)
     try:
@@ -68,7 +71,7 @@ def reorder_event_types(
 @router.put("/{event_type_id}", response_model=EventTypeOut)
 def update_event_type(
     event_type_id: int,
-    data: EventTypeCreate,
+    data: EventTypeUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -77,7 +80,26 @@ def update_event_type(
     )
     if not event_type:
         raise HTTPException(status_code=404, detail="Event type not found")
+    interval = data.interval if data.interval is not None else event_type.interval
+    unit = data.unit or event_type.unit
+    if (interval, unit) != (event_type.interval, event_type.unit) and needs_start_year(interval, unit):
+        undated = (
+            db.query(func.count(Event.id))
+            .filter(Event.event_type_id == event_type.id, Event.year_known.is_(False))
+            .scalar()
+        )
+        if undated:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{undated} {'date' if undated == 1 else 'dates'} of this type have no year. "
+                    f"Add a year to {'it' if undated == 1 else 'them'} before making the type repeat "
+                    f"{cadence_label(interval, unit)}"
+                ),
+            )
     event_type.name = data.name.strip()
+    event_type.interval = interval
+    event_type.unit = unit
     try:
         db.commit()
     except IntegrityError:

@@ -99,6 +99,10 @@ class EventType(Base):
     name = Column(String, nullable=False)
     is_default = Column(Boolean, nullable=False, default=False)
     sort_order = Column(Integer, nullable=False, default=0)
+    # How often dates of this type come around: every `interval` `unit`s,
+    # where unit is day, week, month or year (see events_logic.py).
+    interval = Column(Integer, nullable=False, default=1, server_default="1")
+    unit = Column(String, nullable=False, default="year", server_default="year")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     events = relationship("Event", back_populates="event_type", cascade="all, delete-orphan")
@@ -152,12 +156,22 @@ class Event(Base):
     event_type = relationship("EventType", back_populates="events")
 
     @property
+    def cadence(self) -> dict:
+        """Arguments for events_logic: where this date starts and how its
+        type makes it repeat."""
+        return {
+            "year": self.year if self.year_known else None,
+            "interval": self.event_type.interval,
+            "unit": self.event_type.unit,
+        }
+
+    @property
     def days_until(self) -> int:
-        return _days_until(self.month, self.day)
+        return _days_until(self.month, self.day, **self.cadence)
 
     @property
     def days_since(self) -> int:
-        return _days_since(self.month, self.day)
+        return _days_since(self.month, self.day, **self.cadence)
 
 
 class ReminderDelivery(Base):

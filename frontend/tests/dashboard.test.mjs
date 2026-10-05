@@ -5,7 +5,7 @@ import { dashboardGroups, milestone } from "../src/lib/dashboard.ts";
 const event = (id, days_until, overrides = {}) => ({
   id, days_until, days_since: days_until === 0 ? 0 : 365 - days_until,
   month: 1, day: 1, year: 2000, year_known: true, notes: null,
-  event_type: { id: 1, name: "Birthday", is_default: true }, ...overrides,
+  event_type: { id: 1, name: "Birthday", is_default: true, interval: 1, unit: "year" }, ...overrides,
 });
 const person = (id, name, events) => ({ id, name, events, image_url: null });
 const ids = (entries) => entries.map(({ event }) => event.id);
@@ -50,5 +50,19 @@ test("milestones account for year rollover and unknown years", () => {
   assert.equal(milestone(event(1, 1, { year_known: false }), today), "");
   assert.equal(milestone(event(1, 1, { year: null }), today), "");
   assert.equal(milestone(event(1, 1, { year: 2030 }), today), "");
-  assert.equal(milestone(event(1, 1, { year: 2026, event_type: { name: "Anniversary" } }), today), "1 year");
+  assert.equal(milestone(event(1, 1, { year: 2026, event_type: { name: "Anniversary", interval: 1, unit: "year" } }), today), "1 year");
+});
+
+test("non-yearly cadences count units since the start, yearly ones keep their age", () => {
+  const today = new Date(2026, 9, 8); // Oct 8, 2026
+  const typed = (interval, unit, overrides = {}) =>
+    event(1, 0, { month: 3, day: 8, year: 2026, event_type: { id: 9, name: "Check-in", is_default: false, interval, unit }, ...overrides });
+  assert.equal(milestone(typed(1, "month"), today, 0), "7 months");
+  assert.equal(milestone(typed(1, "month", { month: 9 }), today, 0), "1 month");
+  assert.equal(milestone(typed(7, "month"), today, 0), "7 months");
+  assert.equal(milestone(typed(1, "week", { month: 9, day: 24 }), today, 0), "2 weeks");
+  assert.equal(milestone(typed(37, "day", { month: 8, day: 22 }), today, 0), "47 days");
+  assert.equal(milestone(typed(5, "year", { year: 2016, month: 10, day: 8 }), today, 0), "10 years");
+  assert.equal(milestone(typed(1, "month", { year: null, year_known: false }), today, 0), "");
+  assert.equal(milestone(event(1, 0, { year: 1990, month: 10, day: 8 }), today, 0), "Turns 36");
 });
