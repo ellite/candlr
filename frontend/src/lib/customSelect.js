@@ -71,7 +71,10 @@ function enhanceSelect(select) {
   }
 
   function highlight(i) {
-    if (highlighted >= 0 && optionEls[highlighted]) optionEls[highlighted].classList.remove("is-highlighted");
+    // Clear every option, not just the last one tracked: close() resets
+    // `highlighted` without touching the element, which left the previously
+    // selected option looking selected after choosing a different one.
+    optionEls.forEach((li) => li.classList.remove("is-highlighted"));
     highlighted = i;
     if (optionEls[highlighted]) {
       optionEls[highlighted].classList.add("is-highlighted");
