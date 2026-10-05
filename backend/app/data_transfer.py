@@ -266,12 +266,106 @@ def parse_json(text: str) -> ParsedFile:
     return parsed
 
 
+def _unfold_vcard(text: str) -> list[str]:
+    """Joins RFC 6350 folded lines (a continuation starts with space or tab)."""
+    lines: list[str] = []
+    for raw in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if raw[:1] in (" ", "\t") and lines:
+            lines[-1] += raw[1:]
+        else:
+            lines.append(raw)
+    return lines
+
+
+def _vcard_text(value: str) -> str:
+    return re.sub(r"\\([nN,;\\])", lambda m: "\n" if m.group(1) in "nN" else m.group(1), value).strip()
+
+
+def _vcard_date(value: str, params: str) -> tuple[str, str, Optional[str]]:
+    """Accepts 1990-05-12, 19900512, --0512, --05-12 and a trailing time part.
+    Apple marks an unknown year as 1604 (or flags X-APPLE-OMIT-YEAR); both are
+    treated as no year."""
+    text = value.strip().split("T")[0]
+    compact = re.match(r"^(?:(\d{4})|-)-?(\d{2})-?(\d{2})$", text)
+    if not compact:
+        raise ValueError(f"unrecognized date {value!r}")
+    year, month, day = compact.groups()
+    omit = re.search(r"X-APPLE-OMIT-YEAR=(\d+)", params, re.IGNORECASE)
+    if year and (year == "1604" or (omit and omit.group(1) == year)):
+        year = None
+    return month, day, year
+
+
+# vCard property -> event type name. ANNIVERSARY is RFC 6350, X-ANNIVERSARY is
+# what several address books emit instead.
+_VCARD_DATES = {"BDAY": "Birthday", "ANNIVERSARY": "Anniversary", "X-ANNIVERSARY": "Anniversary"}
+
+
+def parse_vcf(text: str) -> ParsedFile:
+    parsed = ParsedFile()
+    cards: list[list[str]] = []
+    current: Optional[list[str]] = None
+    for line in _unfold_vcard(text):
+        upper = line.strip().upper()
+        if upper == "BEGIN:VCARD":
+            current = []
+        elif upper == "END:VCARD":
+            if current is not None:
+                cards.append(current)
+            current = None
+        elif current is not None and line.strip():
+            current.append(line)
+    if not cards:
+        raise ImportFormatError("No vCards found in the file")
+
+    for index, lines in enumerate(cards, start=1):
+        fn = ""
+        n_parts: list[str] = []
+        dates: list[tuple[str, str, str]] = []
+        for line in lines:
+            head, _, value = line.partition(":")
+            prop, _, params = head.partition(";")
+            # Apple prefixes grouped properties, e.g. item1.X-ANNIVERSARY.
+            prop = prop.rsplit(".", 1)[-1].upper()
+            if prop == "FN":
+                fn = _vcard_text(value)
+            elif prop == "N":
+                n_parts = [_vcard_text(part) for part in value.split(";")]
+            elif prop in _VCARD_DATES and value.strip():
+                dates.append((prop, params, value))
+        if not fn and n_parts:
+            # N is family;given;additional;prefix;suffix
+            given, family = (n_parts + ["", ""])[1], n_parts[0]
+            fn = f"{given} {family}".strip()
+        label = f"vCard {index}" + (f" ({fn!r})" if fn else "")
+        if not dates:
+            continue
+        try:
+            name = _clean_text(fn, MAX_NAME_LENGTH, "name")
+            if not name:
+                raise ValueError("no name (FN or N)")
+        except ValueError as e:
+            parsed.reject(f"{label}: {e}")
+            continue
+        for prop, params, value in dates:
+            try:
+                month, day, year = _vcard_date(value, params)
+                parsed.add(name, _build_event(_VCARD_DATES[prop], month, day, year, None, None))
+            except ValueError as e:
+                parsed.reject(f"{label}: {e}")
+    return parsed
+
+
 def parse_upload(filename: str, raw: bytes) -> ParsedFile:
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise ImportFormatError("The file must be UTF-8 text") from None
     name = (filename or "").lower()
+    if name.endswith((".vcf", ".vcard")) or (
+        not name.endswith((".csv", ".json")) and text.lstrip()[:11].upper() == "BEGIN:VCARD"
+    ):
+        return parse_vcf(text)
     if name.endswith(".json") or (not name.endswith(".csv") and text.lstrip().startswith(("{", "["))):
         return parse_json(text)
     return parse_csv(text)

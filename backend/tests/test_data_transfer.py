@@ -162,6 +162,39 @@ class DataTransferTests(unittest.TestCase):
         rows = list(csv.reader(io.StringIO(self.client.get("/data/export?format=csv").text.lstrip("﻿"))))
         self.assertEqual(len(rows), 1)  # header only
 
+    def test_vcf_import_maps_birthdays_and_anniversaries(self):
+        vcf = (
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Alex Doe\r\nBDAY:1990-03-05\r\n"
+            "ANNIVERSARY:20150601\r\nEND:VCARD\r\n"
+            "BEGIN:VCARD\r\nVERSION:4.0\r\nN:Smith;Sam;;;\r\nBDAY:--0229\r\nEND:VCARD\r\n"
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Apple Person\r\nBDAY;X-APPLE-OMIT-YEAR=1604:1604-07-04\r\n"
+            "item1.X-ANNIVERSARY:2001-09-09T00:00:00Z\r\nEND:VCARD\r\n"
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:No Dates\r\nEND:VCARD\r\n"
+        )
+        res = self._upload("contacts.vcf", vcf)
+        self.assertEqual(res.status_code, 200, res.text)
+        body = res.json()
+        self.assertEqual((body["people_created"], body["events_added"], body["invalid_rows"]), (3, 5, 0))
+        rows = {(r[0], r[1], r[2], r[3], r[4]) for r in self._snapshot(1)}
+        self.assertIn(("Alex Doe", "Birthday", 3, 5, 1990), rows)
+        self.assertIn(("Alex Doe", "Anniversary", 6, 1, 2015), rows)
+        self.assertIn(("Sam Smith", "Birthday", 2, 29, None), rows)
+        self.assertIn(("Apple Person", "Birthday", 7, 4, None), rows)
+        self.assertIn(("Apple Person", "Anniversary", 9, 9, 2001), rows)
+
+    def test_vcf_folded_lines_and_reimport_is_noop(self):
+        vcf = "BEGIN:VCARD\nVERSION:3.0\nFN:Long\n  Name\nBDAY:1980-01-02\nEND:VCARD\n"
+        self.assertEqual(self._upload("a.vcf", vcf).json()["events_added"], 1)
+        again = self._upload("a.vcf", vcf).json()
+        self.assertEqual((again["events_added"], again["events_skipped"]), (0, 1))
+        self.assertEqual(self._snapshot(1)[0][0], "Long Name")
+
+    def test_vcf_bad_dates_are_reported_and_garbage_rejected(self):
+        vcf = "BEGIN:VCARD\nFN:Bad\nBDAY:not-a-date\nEND:VCARD\nBEGIN:VCARD\nFN:Good\nBDAY:2000-04-05\nEND:VCARD\n"
+        body = self._upload("a.vcf", vcf).json()
+        self.assertEqual((body["people_created"], body["invalid_rows"]), (1, 1))
+        self.assertEqual(self._upload("a.vcf", "hello").status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()
