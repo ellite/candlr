@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
+from . import carddav
 from .config import settings
 from .database import SessionLocal
 from .events_logic import elapsed, occurs_on
@@ -137,6 +138,10 @@ def main():
             run_once()
         except Exception:
             log.error("Reminder scan failed; retrying in one minute")
+        try:
+            carddav.run_due(SessionLocal)
+        except Exception:
+            log.error("CardDAV sync scan failed; retrying in one minute")
         stopping.wait(60)
 
 

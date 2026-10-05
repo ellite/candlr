@@ -20,6 +20,7 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
   const detailModal = document.getElementById("detail-modal");
   const detailAvatarWrap = document.getElementById("detail-avatar-wrap");
   const detailName = document.getElementById("detail-name");
+  const detailSynced = document.getElementById("detail-synced");
   const detailEvents = document.getElementById("detail-events");
 
   let currentPerson = null;
@@ -27,6 +28,7 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
   function render() {
     detailAvatarWrap.innerHTML = avatarHtml(currentPerson, "w-11 h-11 text-sm");
     detailName.textContent = currentPerson.name;
+    detailSynced.classList.toggle("hidden", !currentPerson.source);
 
     detailEvents.innerHTML = "";
     const sorted = [...currentPerson.events].sort((a, b) => a.days_until - b.days_until);

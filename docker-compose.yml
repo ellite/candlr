@@ -32,6 +32,11 @@ services:
       # - OIDC_AUTO_CREATE_USERS=true
       # - OIDC_DISABLE_PASSWORD_LOGIN=false
 
+      # CardDAV address book sync (optional). Needed when your address book is on
+      # a private address, such as a Radicale or Nextcloud on your LAN.
+      # - CARDDAV_ALLOW_PRIVATE_HOSTS=true
+      # - CARDDAV_SYNC_INTERVAL_MINUTES=360  # 0 = only sync when asked
+
       # SMTP (optional) - powers the email notification channel and, once
       # set, turns on forgot/reset password.
       # - SERVER_URL=http://your-server:4258  # used to build the reset-password link

@@ -40,7 +40,7 @@ class ImageError(Exception):
     """Raised for any invalid upload/URL/image content; message is user-facing."""
 
 
-def _is_blocked_ip(ip_str: str) -> bool:
+def is_blocked_ip(ip_str: str) -> bool:
     try:
         addr = ipaddress.ip_address(ip_str)
     except ValueError:
@@ -48,7 +48,7 @@ def _is_blocked_ip(ip_str: str) -> bool:
     if isinstance(addr, ipaddress.IPv6Address):
         mapped = addr.ipv4_mapped
         if mapped is not None:
-            return _is_blocked_ip(str(mapped))
+            return is_blocked_ip(str(mapped))
     return any(addr in network for network in _BLOCKED_NETWORKS)
 
 
@@ -66,7 +66,7 @@ def _validate_public_url(url: str) -> None:
         raise ImageError("Could not resolve that hostname")
 
     ips = {info[4][0] for info in resolved}
-    if not ips or any(_is_blocked_ip(ip) for ip in ips):
+    if not ips or any(is_blocked_ip(ip) for ip in ips):
         raise ImageError("That URL points at a private or internal address")
 
 

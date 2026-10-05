@@ -203,6 +203,19 @@ Setup expires after ten minutes and sign-in challenges after five minutes. Five 
 
 Authenticator secrets are encrypted using a key derived from `SECRET_KEY`; recovery codes and login challenges are stored hashed. Keep `SECRET_KEY` stable and backed up with your database. Changing it makes stored authenticator secrets unreadable. Serve the app over HTTPS and enable `COOKIE_SECURE` in production.
 
+## Address book sync (CardDAV)
+
+**Settings > Address book sync** connects one CardDAV address book (Radicale, Baïkal, Nextcloud and the like) per account. Enter the address book's own URL (for Nextcloud, `https://cloud.example.com/remote.php/dav/addressbooks/users/NAME/contacts/`), a username and a password, ideally an app password.
+
+Sync is one way and the address book is the master copy. Every contact with a `BDAY`, `ANNIVERSARY` or `X-ANNIVERSARY` becomes a card with a Birthday or Anniversary date, matched by the contact's UID, so renaming a contact renames its card instead of duplicating it. A card you already made with the same name is adopted on the first sync. Names and dates are overwritten by each sync; notes and the reminder switch on a date are kept. A contact deleted in the address book removes its card, unless the server returns no dated contacts at all, which is treated as a wrong URL and changes nothing. Photos are not synced, and nothing is ever written back to the address book.
+
+The worker syncs every connected address book on a schedule, and **Sync now** does it on demand. The password is stored encrypted with a key derived from `SECRET_KEY`, so keep that stable.
+
+| Variable | Default | Description |
+|---|---|---|
+| `CARDDAV_ALLOW_PRIVATE_HOSTS` | `false` | Address books on private or internal addresses (a Radicale or Nextcloud on your LAN or in another container) are refused unless this is `true`. Link-local addresses are always refused. |
+| `CARDDAV_SYNC_INTERVAL_MINUTES` | `360` | How often the worker syncs each address book. `0` turns the scheduled sync off. |
+
 ## Notifications
 
 Each account can configure its own notification channels from the settings page, plus what time of day to be notified (always on the day itself) and, per date, whether to notify for it at all. The reminder worker checks every minute in `TIMEZONE` and sends one message per enabled date on every enabled channel. It catches up later the same day after downtime, but does not send reminders from previous days. Delivery history in SQLite prevents routine repeat sends across restarts; failed channels retry after 5, 10, 20, 40, then 60 minutes, only while still eligible that day. A crash after a provider accepts a message but before success is recorded can still cause a duplicate. Web push follows the existing channel behavior: delivery to any subscribed device counts as channel success.

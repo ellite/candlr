@@ -207,6 +207,8 @@ class PersonOut(BaseModel):
     id: int
     name: str
     image_url: Optional[str]
+    # "carddav" for a card kept in sync with an address book, else null.
+    source: Optional[str] = None
     events: list[EventOut]
 
     model_config = {"from_attributes": True}
@@ -248,3 +250,21 @@ BulkRequest = Annotated[Union[BulkDelete, BulkSetType, BulkSetNotify], Field(dis
 class BulkResult(BaseModel):
     people: int
     dates: int
+
+
+# CardDAV
+class CardDavSave(BaseModel):
+    url: str = Field(min_length=1, max_length=2000)
+    username: str = Field(default="", max_length=200)
+    # Left out (or null) keeps the saved password.
+    password: Optional[str] = Field(default=None, max_length=500)
+
+
+class CardDavOut(BaseModel):
+    url: str
+    username: str
+    has_password: bool
+    last_attempt_at: Optional[datetime]
+    last_sync_at: Optional[datetime]
+    last_error: Optional[str]
+    last_result: Optional[dict]

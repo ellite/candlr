@@ -42,6 +42,8 @@ class ParsedEvent:
     year: Optional[int]
     notes: Optional[str]
     notify: bool
+    # Which vCard property the date came from (CardDAV sync only).
+    source_key: Optional[str] = None
 
 
 @dataclass
@@ -311,8 +313,20 @@ def _vcard_date(value: str, params: str) -> tuple[str, str, Optional[str]]:
 _VCARD_DATES = {"BDAY": "Birthday", "ANNIVERSARY": "Anniversary", "X-ANNIVERSARY": "Anniversary"}
 
 
-def parse_vcf(text: str) -> ParsedFile:
-    parsed = ParsedFile()
+@dataclass
+class ParsedCard:
+    """One vCard: who it is and the dates on it. `uid` is the card's own UID
+    property when it has one; `events` carry a `source_key` naming the vCard
+    property each came from, so a later sync can tell which is which."""
+
+    uid: Optional[str]
+    name: Optional[str]
+    events: list[ParsedEvent] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    label: str = "vCard"
+
+
+def parse_vcards(text: str) -> list[ParsedCard]:
     cards: list[list[str]] = []
     current: Optional[list[str]] = None
     for line in _unfold_vcard(text):
@@ -328,8 +342,10 @@ def parse_vcf(text: str) -> ParsedFile:
     if not cards:
         raise ImportFormatError("No vCards found in the file")
 
+    parsed_cards: list[ParsedCard] = []
     for index, lines in enumerate(cards, start=1):
         fn = ""
+        uid = None
         n_parts: list[str] = []
         dates: list[tuple[str, str, str]] = []
         for line in lines:
@@ -339,6 +355,8 @@ def parse_vcf(text: str) -> ParsedFile:
             prop = prop.rsplit(".", 1)[-1].upper()
             if prop == "FN":
                 fn = _vcard_text(value)
+            elif prop == "UID":
+                uid = value.strip() or None
             elif prop == "N":
                 n_parts = [_vcard_text(part) for part in value.split(";")]
             elif prop in _VCARD_DATES and value.strip():
@@ -347,22 +365,40 @@ def parse_vcf(text: str) -> ParsedFile:
             # N is family;given;additional;prefix;suffix
             given, family = (n_parts + ["", ""])[1], n_parts[0]
             fn = f"{given} {family}".strip()
-        label = f"vCard {index}" + (f" ({fn!r})" if fn else "")
-        if not dates:
-            continue
-        try:
-            name = _clean_text(fn, MAX_NAME_LENGTH, "name")
-            if not name:
-                raise ValueError("no name (FN or N)")
-        except ValueError as e:
-            parsed.reject(f"{label}: {e}")
-            continue
+        card = ParsedCard(uid=uid, name=None, label=f"vCard {index}" + (f" ({fn!r})" if fn else ""))
+        if dates:
+            try:
+                card.name = _clean_text(fn, MAX_NAME_LENGTH, "name")
+                if not card.name:
+                    raise ValueError("no name (FN or N)")
+            except ValueError as e:
+                card.errors.append(f"{card.label}: {e}")
+        counts: dict[str, int] = {}
         for prop, params, value in dates:
+            if card.name is None:
+                break
             try:
                 month, day, year = _vcard_date(value, params)
-                parsed.add(name, _build_event(_VCARD_DATES[prop], month, day, year, None, None))
+                event = _build_event(_VCARD_DATES[prop], month, day, year, None, None)
             except ValueError as e:
-                parsed.reject(f"{label}: {e}")
+                card.errors.append(f"{card.label}: {e}")
+                continue
+            # BDAY, then ANNIVERSARY/X-ANNIVERSARY numbered in file order.
+            kind = "BDAY" if prop == "BDAY" else "ANNIVERSARY"
+            event.source_key = f"{kind}#{counts.get(kind, 0)}"
+            counts[kind] = counts.get(kind, 0) + 1
+            card.events.append(event)
+        parsed_cards.append(card)
+    return parsed_cards
+
+
+def parse_vcf(text: str) -> ParsedFile:
+    parsed = ParsedFile()
+    for card in parse_vcards(text):
+        for message in card.errors:
+            parsed.reject(message)
+        for event in card.events:
+            parsed.add(card.name, event)
     return parsed
 
 

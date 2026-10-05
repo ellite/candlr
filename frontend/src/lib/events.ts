@@ -13,4 +13,4 @@ export type EventOut = {
   days_until: number;
   days_since: number;
 };
-export type Person = { id: number; name: string; image_url: string | null; events: EventOut[] };
+export type Person = { id: number; name: string; image_url: string | null; source?: string | null; events: EventOut[] };

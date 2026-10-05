@@ -7,16 +7,26 @@ import { apiJson } from "../lib/api";
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
 type EventType = { id: number; name: string; is_default: boolean };
+type CardDavAccount = {
+  url: string;
+  username: string;
+  has_password: boolean;
+  last_attempt_at: string | null;
+  last_sync_at: string | null;
+  last_error: string | null;
+  last_result: { cards: number; added: number; updated: number; removed: number; skipped: number; errors: string[] } | null;
+};
 type NotificationChannel = { channel: string; enabled: boolean; config: Record<string, string> };
 
 // Fired concurrently - see the same comment in index.astro. This page was
 // the worst offender, four calls in series before this.
-const [meResult, eventTypesResult, channelsResult, vapidResult, notifyPreferencesResult] = await Promise.allSettled([
+const [meResult, eventTypesResult, channelsResult, vapidResult, notifyPreferencesResult, carddavResult] = await Promise.allSettled([
   apiJson<{ username: string; email: string; has_password: boolean; is_admin: boolean }>("/auth/me", { cookies }),
   apiJson<EventType[]>("/event-types", { cookies }),
   apiJson<NotificationChannel[]>("/notifications/channels", { cookies }),
   apiJson<{ public_key: string | null }>("/notifications/webpush/public-key", { cookies }),
   apiJson<{ notify_time: string }>("/notifications/preferences", { cookies }),
+  apiJson<CardDavAccount | null>("/carddav", { cookies }),
 ]);
 
 if (meResult.status === "rejected") {
@@ -25,6 +35,7 @@ if (meResult.status === "rejected") {
 }
 const user = meResult.value;
 const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.value : [];
+const carddav = carddavResult.status === "fulfilled" ? carddavResult.value : null;
 const channels = channelsResult.status === "fulfilled" ? channelsResult.value : [];
 const vapidPublicKey = vapidResult.status === "fulfilled" ? vapidResult.value.public_key : null;
 const jsonExample = '{"people": [{"name": "Alex", "events": [{"type": "Birthday", "month": 3, "day": 5, "year": 1990}]}]}';
@@ -342,6 +353,41 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     </section>
 
     <section class="card p-6">
+      <h2 class="text-sm font-medium mb-1">Address book sync</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+        Keep your cards in step with a CardDAV address book such as Radicale, Baïkal or Nextcloud. Birthdays and
+        anniversaries are pulled in regularly. The address book is the master copy: names and dates are overwritten by
+        the next sync, while your notes and reminder settings stay. Photos are not synced.
+      </p>
+      <div class="space-y-3 max-w-md">
+        <div>
+          <label class="label" for="carddav-url">Address book URL</label>
+          <input id="carddav-url" class="input" type="url" placeholder="https://cloud.example.com/remote.php/dav/addressbooks/users/me/contacts/" autocomplete="off" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="carddav-username">Username</label>
+            <input id="carddav-username" class="input" type="text" autocomplete="off" />
+          </div>
+          <div>
+            <label class="label" for="carddav-password">Password</label>
+            <input id="carddav-password" class="input" type="password" autocomplete="new-password" />
+          </div>
+        </div>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+          Use the address book's own URL, not the server's front page. If your server offers app passwords, use one.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button id="carddav-save-btn" type="button" class="btn-primary">Save and sync</button>
+        <button id="carddav-sync-btn" type="button" class="btn-secondary hidden">Sync now</button>
+        <button id="carddav-disconnect-btn" type="button" class="btn-secondary hidden">Disconnect</button>
+      </div>
+      <div id="carddav-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mt-3"></div>
+      <ul id="carddav-errors" class="hidden list-disc pl-5 mt-2 text-xs text-zinc-600 dark:text-zinc-300 space-y-0.5"></ul>
+    </section>
+
+    <section class="card p-6">
       <h2 class="text-sm font-medium mb-1">Data management</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
         Permanently deletes every person and date you're tracking. Your account and settings are kept. This cannot be undone.
@@ -396,6 +442,27 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       <div class="flex gap-2 justify-end mt-5">
         <button id="add-event-type-cancel-btn" type="button" class="btn-secondary">Cancel</button>
         <button id="add-event-type-btn" type="button" class="btn-primary">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="carddav-disconnect-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="carddav-disconnect-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative card p-6 w-full max-w-sm">
+      <h2 class="text-base font-semibold mb-1.5">Disconnect the address book?</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-3">
+        Syncing stops. The cards it created stay as ordinary cards unless you choose to delete them.
+      </p>
+      <label class="flex items-center gap-2 text-sm cursor-pointer mb-4">
+        <input type="checkbox" id="carddav-delete-cards" />
+        Also delete the cards that were synced
+      </label>
+      <div class="flex gap-2 justify-end">
+        <button id="carddav-disconnect-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="carddav-disconnect-confirm-btn" type="button"
+          class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
+          Disconnect
+        </button>
       </div>
     </div>
   </div>
@@ -465,7 +532,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     </div>
   </div>
 
-  <script define:vars={{ hasPassword: user.has_password, initialChannels: channels, vapidPublicKey, notifyTime }}>
+  <script define:vars={{ hasPassword: user.has_password, initialChannels: channels, vapidPublicKey, notifyTime, initialCarddav: carddav }}>
     // ── Password change ──
     const pwBtn = document.getElementById("password-btn");
     const pwError = document.getElementById("password-error");
@@ -671,6 +738,156 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         closeDeleteEventTypeModal();
       } finally {
         deleteEventTypeConfirmBtn.disabled = false;
+      }
+    });
+
+    // ── Address book sync (CardDAV) ──
+    const carddavUrl = document.getElementById("carddav-url");
+    const carddavUsername = document.getElementById("carddav-username");
+    const carddavPassword = document.getElementById("carddav-password");
+    const carddavSaveBtn = document.getElementById("carddav-save-btn");
+    const carddavSyncBtn = document.getElementById("carddav-sync-btn");
+    const carddavDisconnectBtn = document.getElementById("carddav-disconnect-btn");
+    const carddavStatus = document.getElementById("carddav-status");
+    const carddavErrors = document.getElementById("carddav-errors");
+    const carddavDisconnectModal = document.getElementById("carddav-disconnect-modal");
+    const carddavDeleteCards = document.getElementById("carddav-delete-cards");
+    const carddavConfirmBtn = document.getElementById("carddav-disconnect-confirm-btn");
+
+    function carddavSay(message, isError) {
+      carddavStatus.textContent = message;
+      carddavStatus.className = `text-sm px-3.5 py-2.5 rounded-lg mt-3 ${
+        isError
+          ? "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+          : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      }`;
+    }
+
+    function carddavClearStatus() {
+      carddavStatus.classList.add("hidden");
+      carddavErrors.classList.add("hidden");
+      carddavErrors.replaceChildren();
+    }
+
+    function renderCarddav(account) {
+      const connected = !!account;
+      carddavSyncBtn.classList.toggle("hidden", !connected);
+      carddavDisconnectBtn.classList.toggle("hidden", !connected);
+      carddavSaveBtn.textContent = connected ? "Save changes" : "Save and sync";
+      carddavPassword.placeholder = account?.has_password ? "Saved. Leave blank to keep" : "";
+      carddavClearStatus();
+      if (!account) return;
+      const result = account.last_result;
+      if (account.last_error) {
+        const when = account.last_sync_at ? ` Last successful sync: ${new Date(account.last_sync_at).toLocaleString()}.` : "";
+        carddavSay(`${account.last_error}.${when}`.replace(/\.\.$/, "."), true);
+      } else if (account.last_sync_at && result) {
+        const parts = [`${plural(result.cards, "contact")} with a date`];
+        if (result.added) parts.push(`${result.added} added`);
+        if (result.updated) parts.push(`${result.updated} updated`);
+        if (result.removed) parts.push(`${result.removed} removed`);
+        if (result.skipped) parts.push(`${result.skipped} skipped`);
+        carddavSay(`Synced ${new Date(account.last_sync_at).toLocaleString()}: ${parts.join(", ")}.`, false);
+      } else {
+        carddavSay("Connected. Not synced yet.", false);
+      }
+      for (const message of result?.errors ?? []) {
+        const li = document.createElement("li");
+        li.textContent = message;
+        carddavErrors.appendChild(li);
+      }
+      carddavErrors.classList.toggle("hidden", !carddavErrors.children.length);
+    }
+
+    async function carddavRequest(path, options) {
+      const res = await fetch(`/api/carddav${path}`, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail?.[0]?.msg || data.detail || "Something went wrong");
+      return data;
+    }
+
+    async function refreshCarddav() {
+      renderCarddav(await carddavRequest("", {}).catch(() => initialCarddav));
+    }
+
+    async function runCarddavSync() {
+      carddavSay("Syncing...", false);
+      try {
+        renderCarddav(await carddavRequest("/sync", { method: "POST" }));
+      } catch (e) {
+        await refreshCarddav();
+        carddavSay(e.message, true);
+      }
+    }
+
+    function setCarddavBusy(busy) {
+      for (const btn of [carddavSaveBtn, carddavSyncBtn, carddavDisconnectBtn]) btn.disabled = busy;
+    }
+
+    if (initialCarddav) {
+      carddavUrl.value = initialCarddav.url;
+      carddavUsername.value = initialCarddav.username;
+    }
+    renderCarddav(initialCarddav);
+
+    carddavSaveBtn.addEventListener("click", async () => {
+      const url = carddavUrl.value.trim();
+      if (!url) {
+        carddavSay("Enter the address book URL", true);
+        return;
+      }
+      setCarddavBusy(true);
+      try {
+        const body = { url, username: carddavUsername.value.trim() };
+        if (carddavPassword.value) body.password = carddavPassword.value;
+        const saved = await carddavRequest("", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        carddavPassword.value = "";
+        renderCarddav(saved);
+        await runCarddavSync();
+      } catch (e) {
+        carddavSay(e.message, true);
+      } finally {
+        setCarddavBusy(false);
+      }
+    });
+
+    carddavSyncBtn.addEventListener("click", async () => {
+      setCarddavBusy(true);
+      await runCarddavSync();
+      setCarddavBusy(false);
+    });
+
+    carddavDisconnectBtn.addEventListener("click", () => {
+      carddavDeleteCards.checked = false;
+      carddavDisconnectModal.classList.remove("hidden");
+    });
+    function closeCarddavDisconnectModal() {
+      if (!carddavConfirmBtn.disabled) carddavDisconnectModal.classList.add("hidden");
+    }
+    document.getElementById("carddav-disconnect-cancel-btn").addEventListener("click", closeCarddavDisconnectModal);
+    document.getElementById("carddav-disconnect-backdrop").addEventListener("click", closeCarddavDisconnectModal);
+    carddavConfirmBtn.addEventListener("click", async () => {
+      carddavConfirmBtn.disabled = true;
+      try {
+        const data = await carddavRequest(`?delete_cards=${carddavDeleteCards.checked}`, { method: "DELETE" });
+        carddavUrl.value = carddavUsername.value = carddavPassword.value = "";
+        renderCarddav(null);
+        carddavSay(
+          carddavDeleteCards.checked
+            ? `Disconnected. ${plural(data.cards, "card")} deleted.`
+            : `Disconnected. ${plural(data.cards, "card")} kept.`,
+          false
+        );
+        carddavConfirmBtn.disabled = false;
+        closeCarddavDisconnectModal();
+      } catch (e) {
+        carddavConfirmBtn.disabled = false;
+        closeCarddavDisconnectModal();
+        carddavSay(e.message, true);
       }
     });
 

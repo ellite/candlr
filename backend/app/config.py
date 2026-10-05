@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     # File storage root - override with DATA_DIR in production if needed.
     data_dir: Path = Path(__file__).parent.parent / "data"
 
+    # CardDAV address book sync. Servers on private addresses (a Radicale or
+    # Nextcloud on the LAN, or in another container) are refused unless this
+    # is set, since users could otherwise point Candlr at internal services.
+    carddav_allow_private_hosts: bool = False
+    # How often the worker syncs each connected address book; 0 turns the
+    # background sync off (the "Sync now" button still works).
+    carddav_sync_interval_minutes: int = 360
+
     # IANA timezone name used to compute "today" (dashboard grouping, days-until
     # math, and the reminder scheduler). Defaults to UTC.
     timezone: str = "UTC"

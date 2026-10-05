@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, DateTime, JSON, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, DateTime, Index, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -61,6 +61,22 @@ class NotificationChannel(Base):
     config = Column(JSON, nullable=False, default=dict)
 
 
+class CardDavAccount(Base):
+    """A user's connected address book, pulled into cards by app.carddav."""
+
+    __tablename__ = "carddav_accounts"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    url = Column(String, nullable=False)
+    username = Column(String, nullable=False, default="")
+    # Fernet-encrypted with a key derived from SECRET_KEY, like TOTP secrets.
+    password = Column(Text, nullable=False, default="")
+    last_attempt_at = Column(DateTime, nullable=True)
+    last_sync_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    last_result = Column(JSON, nullable=True)
+
+
 class PushSubscription(Base):
     """One row per browser/device a user has enabled web push notifications on."""
 
@@ -113,6 +129,7 @@ class Person(Base):
     events attached (e.g. both a Birthday and a Wedding Anniversary)."""
 
     __tablename__ = "people"
+    __table_args__ = (Index("uq_people_source_uid", "user_id", "source", "source_uid", unique=True),)
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
@@ -120,6 +137,10 @@ class Person(Base):
     # Filename under backend/data/images/, not a full path - keeps the DB
     # portable if the data directory ever moves.
     image_filename = Column(String, nullable=True)
+    # Where the card came from when it is kept in sync with an address book
+    # ("carddav"), and that contact's UID there. Null for hand-made cards.
+    source = Column(String, nullable=True)
+    source_uid = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     events = relationship(
@@ -149,6 +170,9 @@ class Event(Base):
     notes = Column(Text, nullable=True)
     # Whether this date should trigger a reminder.
     notify = Column(Boolean, nullable=False, default=True)
+    # Which vCard property a synced date came from ("BDAY#0", "ANNIVERSARY#0"),
+    # so the next sync updates it in place. Null for dates added by hand.
+    source_key = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     deliveries = relationship("ReminderDelivery", cascade="all, delete-orphan")
