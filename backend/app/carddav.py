@@ -23,6 +23,7 @@ from .config import settings
 from .data_transfer import ImportFormatError, ParsedCard, parse_vcards
 from .events_logic import start_year_problem
 from .images import delete_image
+from . import netguard
 from .netguard import UnsafeURLError, check_outbound_url
 from .models import CardDavAccount, Event, EventType, Person
 
@@ -101,28 +102,30 @@ def check_url(url: str) -> None:
 
 def fetch_cards(url: str, username: str, password: str, transport: httpx.BaseTransport | None = None) -> list[RemoteCard]:
     """Asks the address book collection at `url` for every contact (a CardDAV
-    addressbook-query REPORT). Redirects are not followed, so every address
-    Candlr connects to has been checked."""
-    check_url(url)
+    addressbook-query REPORT). Redirects are not followed, and the connection
+    goes to an address that passed the outbound guard (see netguard.py)."""
     auth = httpx.BasicAuth(username, password) if username else None
     headers = {"Depth": "1", "Content-Type": "application/xml; charset=utf-8", "User-Agent": "Candlr"}
     try:
-        with httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=False, transport=transport) as client:
-            with client.stream("REPORT", url, content=_REPORT_BODY, headers=headers, auth=auth) as resp:
-                if resp.is_redirect:
-                    where = resp.headers.get("location", "another address")
-                    raise CardDavError(f"The server redirected to {where}. Use that address instead")
-                if resp.status_code in (401, 403):
-                    raise CardDavError("The server refused the username or password")
-                if resp.status_code == 404:
-                    raise CardDavError("No address book found at that URL")
-                if resp.status_code not in (200, 207):
-                    raise CardDavError(f"The server answered with HTTP {resp.status_code}")
-                body = bytearray()
-                for chunk in resp.iter_bytes():
-                    body += chunk
-                    if len(body) > MAX_RESPONSE_BYTES:
-                        raise CardDavError("The address book is too large to sync (25 MB max)")
+        with netguard.stream(
+            "REPORT", url, content=_REPORT_BODY, headers=headers, auth=auth, timeout=REQUEST_TIMEOUT, transport=transport
+        ) as resp:
+            if resp.is_redirect:
+                where = resp.headers.get("location", "another address")
+                raise CardDavError(f"The server redirected to {where}. Use that address instead")
+            if resp.status_code in (401, 403):
+                raise CardDavError("The server refused the username or password")
+            if resp.status_code == 404:
+                raise CardDavError("No address book found at that URL")
+            if resp.status_code not in (200, 207):
+                raise CardDavError(f"The server answered with HTTP {resp.status_code}")
+            body = bytearray()
+            for chunk in resp.iter_bytes():
+                body += chunk
+                if len(body) > MAX_RESPONSE_BYTES:
+                    raise CardDavError("The address book is too large to sync (25 MB max)")
+    except UnsafeURLError as e:
+        raise CardDavError(str(e)) from None
     except httpx.HTTPError as e:
         raise CardDavError(f"Could not reach the address book ({type(e).__name__})") from None
     return _parse_multistatus(bytes(body))

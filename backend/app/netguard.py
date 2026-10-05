@@ -18,10 +18,18 @@ address it resolves to. Every resolved address must pass. Link-local
 addresses (cloud metadata endpoints) are never allowed, even if listed.
 
 The URL is parsed with httpx.URL, the parser that makes the actual request,
-so the host checked is the host connected to. A hostname is resolved here and
-again by httpx when it connects, so a DNS answer that changes in between
-(rebinding) isn't covered."""
+so the host checked is the host connected to.
 
+check_outbound_url() only validates, which is right for refusing a URL when a
+setting is saved. To make a request, use request() or stream(): they resolve
+the hostname once, validate every address, and then connect to one of those
+exact addresses (sending the original hostname as the Host header and for TLS
+verification), so a DNS answer that changes between the check and the
+connection (rebinding) can't redirect the request. Each call uses a fresh
+client and never follows redirects; a caller that follows them must call
+again for every hop."""
+
+import contextlib
 import ipaddress
 import logging
 import socket
@@ -120,8 +128,10 @@ def _allowed(host: str, addr, port: int) -> bool:
     return False
 
 
-def check_outbound_url(url: str) -> None:
-    """Raises UnsafeURLError unless the server may connect to `url`."""
+def _resolve(url: str):
+    """Validates `url` and returns (parsed, host, port, addresses): the
+    httpx.URL, its lowercase hostname, its port (the scheme's default if the
+    URL has none), and the addresses it resolves to, all of which passed."""
     try:
         parsed = httpx.URL(url)
         port = parsed.port or _DEFAULT_PORTS.get(parsed.scheme)
@@ -134,14 +144,16 @@ def check_outbound_url(url: str) -> None:
         raise UnsafeURLError("The URL has no hostname")
 
     try:
-        resolved = {info[4][0] for info in socket.getaddrinfo(host, port)}
+        infos = socket.getaddrinfo(host, port)
     except (OSError, UnicodeError):
         raise UnsafeURLError("Could not resolve that hostname") from None
-    if not resolved:
+    # In the resolver's preference order, without duplicates.
+    addresses = list(dict.fromkeys(info[4][0].split("%")[0] for info in infos))
+    if not addresses:
         raise UnsafeURLError("Could not resolve that hostname")
 
-    for ip in resolved:
-        addr = ipaddress.ip_address(ip.split("%")[0])
+    for ip in addresses:
+        addr = ipaddress.ip_address(ip)
         if any(_unmap(addr) in network for network in _LINK_LOCAL):
             raise UnsafeURLError("That URL points at a link-local address, which is never allowed")
         if not is_public(addr) and not _allowed(host, addr, port):
@@ -150,3 +162,71 @@ def check_outbound_url(url: str) -> None:
                 f"{shown}:{port} is on a private or internal network. "
                 f"The server admin can allow it by adding {shown}:{port} to INTERNAL_IP_ALLOW_LIST"
             )
+    return parsed, host, port, addresses
+
+
+def check_outbound_url(url: str) -> None:
+    """Raises UnsafeURLError unless the server may connect to `url`."""
+    _resolve(url)
+
+
+def _is_ip(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
+@contextlib.contextmanager
+def stream(method: str, url: str, *, headers=None, auth=None, timeout: float = 10.0, transport=None, **request_kwargs):
+    """Makes a request to `url` and yields the response with its body unread,
+    connecting to a validated address (see the module docstring). Raises
+    UnsafeURLError if the URL isn't allowed, and httpx errors as usual. If a
+    hostname has several addresses, the next is tried when a connection fails.
+
+    `request_kwargs` (content, json, data, params, ...) go to httpx's
+    build_request. `transport` is for tests."""
+    parsed, host, port, addresses = _resolve(url)
+    pin = not _is_ip(host)  # an IP literal needs neither a Host header nor SNI
+    base_extensions = dict(request_kwargs.pop("extensions", None) or {})
+    last_error: Exception | None = None
+    for ip in addresses:
+        client = httpx.Client(timeout=timeout, follow_redirects=False, transport=transport)
+        try:
+            request_headers = httpx.Headers(headers or {})
+            extensions = dict(base_extensions)
+            if pin:
+                shown = f"[{host}]" if ":" in host else host
+                request_headers.setdefault("Host", f"{shown}:{parsed.port}" if parsed.port else shown)
+                if parsed.scheme == "https":
+                    # TLS verifies the certificate against this name, not the IP.
+                    extensions["sni_hostname"] = host
+            request = client.build_request(
+                method, parsed.copy_with(host=ip), headers=request_headers, extensions=extensions, **request_kwargs
+            )
+            response = client.send(request, auth=auth, stream=True)
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            client.close()
+            last_error = e
+            continue
+        except BaseException:
+            client.close()
+            raise
+        # Errors and logs should name the URL that was asked for, not the
+        # address it was pinned to.
+        response.request.url = httpx.URL(url)
+        try:
+            yield response
+        finally:
+            response.close()
+            client.close()
+        return
+    raise last_error
+
+
+def request(method: str, url: str, **kwargs) -> httpx.Response:
+    """Like stream(), but reads the whole body before returning."""
+    with stream(method, url, **kwargs) as response:
+        response.read()
+        return response

@@ -232,7 +232,7 @@ Allow what you need with `INTERNAL_IP_ALLOW_LIST`, a comma separated list of ent
 
 For example, `INTERNAL_IP_ALLOW_LIST=10.0.0.5:3001,gotify:80,192.168.1.0/24`. Entries with no port allow any port, and URLs without a port use 80 for `http` and 443 for `https`. A hostname entry matches the name in the URL, and the other entries match the address that name resolves to; every address it resolves to has to pass. Link-local addresses (`169.254.x.x`, `fe80::/10`) are never allowed, even if listed. Entries that can't be parsed are ignored with a warning in the log. Users who enter a blocked URL see a message naming the entry to add.
 
-This is a breaking change for instances where a ntfy, Discord or Gotify server, address book or photo host sits on a private address: add it to the list when upgrading. The check happens when a channel or address book is saved and again when it is used. A hostname is resolved by the check and again when the connection is made, so a DNS answer that changes between the two (DNS rebinding) is not covered.
+This is a breaking change for instances where a ntfy, Discord or Gotify server, address book or photo host sits on a private address: add it to the list when upgrading. The check happens when a channel or address book is saved and again when it is used. When a request is made, the hostname is resolved once, every address is checked, and the connection goes to one of those exact addresses (the hostname is still used for the `Host` header and for verifying the TLS certificate), so a DNS answer that changes between the check and the connection cannot redirect the request. Redirects are never followed automatically; photo downloads re-check every hop.
 
 ## Notifications
 

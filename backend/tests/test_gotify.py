@@ -68,20 +68,31 @@ class SendTests(unittest.TestCase):
         self.addCleanup(dns.stop)
 
     def post_through(self, handler):
-        client = httpx.Client(transport=httpx.MockTransport(handler))
-        return patch("app.notifiers.gotify.httpx.post", lambda url, **kwargs: client.post(url, **kwargs))
+        """Routes the notifier's requests (made through netguard) to `handler`."""
+        real_client = httpx.Client
+
+        def client(**kwargs):
+            kwargs["transport"] = httpx.MockTransport(handler)
+            return real_client(**kwargs)
+
+        return patch("app.netguard.httpx.Client", client)
 
     def test_request_shape(self):
         seen = {}
 
         def handler(request):
             seen["request"] = request
+            seen["url"] = str(request.url)  # as the transport saw it, before netguard relabels the response
             return httpx.Response(200, json={})
 
         with self.post_through(handler):
             gotify.send("Title", "Body", {**GOOD, "priority": "8"})
         request = seen["request"]
-        self.assertEqual(str(request.url), "https://gotify.example.com/message")
+        # Pinned to the address the guard resolved and checked, while the
+        # hostname is kept for the Host header and TLS verification.
+        self.assertEqual(seen["url"], "https://93.184.216.34/message")
+        self.assertEqual(request.headers["host"], "gotify.example.com")
+        self.assertEqual(request.extensions["sni_hostname"], "gotify.example.com")
         self.assertEqual(request.headers["x-gotify-key"], "tok")
         self.assertEqual(json.loads(request.read()), {"title": "Title", "message": "Body", "priority": 8})
 

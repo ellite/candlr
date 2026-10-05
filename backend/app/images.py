@@ -14,6 +14,7 @@ import httpx
 from PIL import Image, UnidentifiedImageError
 
 from .config import settings
+from . import netguard
 from .netguard import UnsafeURLError, check_outbound_url
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB, applies to both uploads and downloads
@@ -36,14 +37,14 @@ _MAX_REDIRECTS = 5
 
 def download_image(url: str) -> bytes:
     """Fetches url, following redirects manually (never httpx's built-in
-    follow_redirects) so every hop is re-validated against the SSRF blocklist
-    *before* a connection to it is made, not after."""
+    follow_redirects) so every hop is validated and pinned to a checked
+    address *before* a connection to it is made (see netguard.py). The size
+    cap is enforced while reading, so an oversized body is never held in
+    memory."""
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; Candlr/1.0; +https://github.com/ellite/candlr)"}
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; Candlr/1.0; +https://github.com/ellite/candlr)"}
-        with httpx.Client(timeout=10.0, follow_redirects=False, headers=headers) as client:
-            for _ in range(_MAX_REDIRECTS + 1):
-                _validate_public_url(url)
-                resp = client.get(url)
+        for _ in range(_MAX_REDIRECTS + 1):
+            with netguard.stream("GET", url, headers=headers, timeout=10.0) as resp:
                 if resp.is_redirect:
                     location = resp.headers.get("location")
                     if not location:
@@ -60,9 +61,11 @@ def download_image(url: str) -> bytes:
                         raise ImageError("Image is too large (max 8 MB)")
                     chunks.append(chunk)
                 return b"".join(chunks)
-            raise ImageError("Too many redirects")
+        raise ImageError("Too many redirects")
     except ImageError:
         raise
+    except netguard.UnsafeURLError as e:
+        raise ImageError(str(e)) from None
     except httpx.HTTPError as e:
         raise ImageError(f"Could not download that image: {e}") from e
 

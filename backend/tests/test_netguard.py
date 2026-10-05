@@ -256,12 +256,12 @@ class IntegrationTests(NetguardBase):
             (discord, {"webhook_url": "http://10.0.0.5:8080/hook"}),
             (gotify, {"server": "http://10.0.0.5:8080", "app_token": "t"}),
         ]
-        with patch("httpx.post", side_effect=AssertionError("a request was made")) as post:
+        with patch("app.netguard.httpx.Client", side_effect=AssertionError("a request was made")) as client:
             for notifier, config in configs:
                 with self.assertRaises(NotifierError) as error:
                     notifier.send("T", "B", config)
                 self.assertIn("INTERNAL_IP_ALLOW_LIST", str(error.exception))
-            post.assert_not_called()
+            client.assert_not_called()
 
     def test_photo_urls_use_the_same_guard(self):
         with self.assertRaises(images.ImageError) as error:
