@@ -1,3 +1,4 @@
+import logging
 import secrets
 from urllib.parse import urlencode
 
@@ -12,6 +13,8 @@ from ..schemas import OidcConfigOut, OidcAuthorizeOut, OidcExchangeRequest
 from ..seed import seed_default_event_types
 from .auth import _create_session, _set_auth_cookie
 from ..two_factor import begin_login
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/oidc", tags=["oidc"])
 
@@ -89,8 +92,12 @@ def oidc_exchange(
             userinfo: dict = userinfo_resp.json()
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(status_code=502, detail="Provider connection failed")
+    except Exception as e:
+        logger.error(f"OIDC provider request failed: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Provider connection failed ({type(e).__name__}). Check the server logs.",
+        )
 
     identifier = userinfo.get(settings.oidc_identifier_field)
     if not identifier:
