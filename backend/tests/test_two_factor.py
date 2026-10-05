@@ -8,7 +8,7 @@ from datetime import timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
-os.environ.setdefault("SECRET_KEY", "two-factor-tests-only")
+os.environ.setdefault("SECRET_KEY", "two-factor-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import pyotp

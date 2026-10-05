@@ -1,7 +1,7 @@
 import os
 import unittest
 
-os.environ.setdefault("SECRET_KEY", "event-type-tests-only")
+os.environ.setdefault("SECRET_KEY", "event-type-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from fastapi import HTTPException

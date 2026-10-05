@@ -16,7 +16,7 @@ REFRESH_INTERVAL = "PT12H"
 def escape_text(value: str) -> str:
     return (
         value.replace("\\", "\\\\")
-        .replace(";", "\;")
+        .replace(";", "\\;")
         .replace(",", "\\,")
         .replace("\r\n", "\n")
         .replace("\r", "\n")

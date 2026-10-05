@@ -277,6 +277,8 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
+To run the backend tests, run `python -m unittest discover tests` from `backend/`.
+
 ### Frontend
 
 ```bash

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-os.environ.setdefault("SECRET_KEY", "bulk-action-tests-only")
+os.environ.setdefault("SECRET_KEY", "bulk-action-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from fastapi import Depends, FastAPI

@@ -1,7 +1,7 @@
 import os
 import unittest
 
-os.environ.setdefault("SECRET_KEY", "calendar-feed-tests-only")
+os.environ.setdefault("SECRET_KEY", "calendar-feed-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from fastapi import Depends, FastAPI
@@ -103,7 +103,7 @@ class CalendarFeedTests(unittest.TestCase):
         self.assertIn("SUMMARY:Alex's Birthday", text)
         self.assertIn("DTSTART;VALUE=DATE:19900305", text)
         self.assertIn("DTEND;VALUE=DATE:19900306", text)
-        self.assertIn("DESCRIPTION:Likes tea\\, cake\; and\\nbooks", text)
+        self.assertIn("DESCRIPTION:Likes tea\\, cake\\; and\\nbooks", text)
         self.assertIn("SUMMARY:Sam's Anniversary", text)
         self.assertIn("DTSTART;VALUE=DATE:20000704", text)
         self.assertIn("BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1", text)

@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-os.environ.setdefault("SECRET_KEY", "card-edit-tests-only")
+os.environ.setdefault("SECRET_KEY", "card-edit-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from fastapi import FastAPI

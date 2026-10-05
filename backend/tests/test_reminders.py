@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, date, timedelta, timezone
 from unittest.mock import Mock
 
-os.environ.setdefault("SECRET_KEY", "reminder-tests-only")
+os.environ.setdefault("SECRET_KEY", "reminder-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from sqlalchemy import create_engine

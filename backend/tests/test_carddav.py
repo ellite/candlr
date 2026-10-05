@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta
 from xml.sax.saxutils import escape
 
-os.environ.setdefault("SECRET_KEY", "carddav-tests-only")
+os.environ.setdefault("SECRET_KEY", "carddav-tests-only-not-a-real-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import httpx
