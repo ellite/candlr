@@ -19,6 +19,26 @@ logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/oidc", tags=["oidc"])
 
 
+def _require_oidc_settings():
+    missing = [
+        name.upper()
+        for name in (
+            "oidc_client_id",
+            "oidc_client_secret",
+            "oidc_auth_url",
+            "oidc_token_url",
+            "oidc_userinfo_url",
+        )
+        if not getattr(settings, name)
+    ]
+    if missing:
+        logger.error(f"OIDC is enabled but these settings are missing: {', '.join(missing)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"OIDC is misconfigured: missing {', '.join(missing)}",
+        )
+
+
 @router.get("/config", response_model=OidcConfigOut)
 def oidc_config():
     return OidcConfigOut(
@@ -38,6 +58,7 @@ def oidc_authorize():
     """
     if not settings.oidc_enabled:
         raise HTTPException(status_code=400, detail="OIDC not enabled")
+    _require_oidc_settings()
 
     state = secrets.token_urlsafe(32)
     params = {
@@ -61,6 +82,7 @@ def oidc_exchange(
     for a session, and sets the same auth cookie a normal login would."""
     if not settings.oidc_enabled:
         raise HTTPException(status_code=400, detail="OIDC not enabled")
+    _require_oidc_settings()
 
     try:
         with httpx.Client(timeout=10.0) as client:
