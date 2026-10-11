@@ -250,7 +250,7 @@ Docker starts the worker automatically under supervisord after migrations. For l
 | `SMTP_ENCRYPTION` | `tls` | `tls`, `ssl`, or `none`. |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | - | |
 | `FROM_EMAIL` | - | Falls back to `SMTP_USERNAME`, then `candlr@localhost`. |
-| `SERVER_URL` | `http://localhost:4258` | Used to build the link inside the password reset email. Set this to your real external URL. |
+| `SERVER_URL` | `http://localhost:4258` | Used to build the links in password reset emails and in reminder notifications (ntfy, Discord, Telegram, Pushover, Gotify, email). Set this to your real external URL. |
 | `TIMEZONE` | `UTC` | IANA name (e.g. `America/New_York`). Determines "today" for the dashboard and the local time used for reminders. |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | - | Required for the device-notifications (web push) channel. Generate a pair with: |
 

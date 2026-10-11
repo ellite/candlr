@@ -18,9 +18,10 @@ type EventOut = {
 type Person = { id: number; name: string; image_url: string | null; events: EventOut[] };
 
 // Fired concurrently - see the same comment in events.astro.
-const [meResult, peopleResult] = await Promise.allSettled([
+const [meResult, peopleResult, eventTypesResult] = await Promise.allSettled([
   apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }),
   apiJson<Person[]>("/people?sort=name", { cookies }),
+  apiJson<EventType[]>("/event-types", { cookies }),
 ]);
 
 if (meResult.status === "rejected") {
@@ -29,18 +30,27 @@ if (meResult.status === "rejected") {
 }
 const { username, is_admin } = meResult.value;
 const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
+const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.value : [];
 ---
 
 <Layout title="Calendar" user={{ username, is_admin }} activePage="calendar">
   <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
     <div class="mb-6 flex items-center justify-between gap-3">
       <h1 class="text-lg font-semibold tracking-tight">Calendar</h1>
-      <button type="button" id="feed-open-btn" class="btn-secondary inline-flex items-center gap-2 px-3 py-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
-        </svg>
-        Subscribe
-      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" id="share-open-btn" class="btn-secondary inline-flex items-center gap-2 px-3 py-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          Share
+        </button>
+        <button type="button" id="feed-open-btn" class="btn-secondary inline-flex items-center gap-2 px-3 py-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
+          </svg>
+          Subscribe
+        </button>
+      </div>
     </div>
 
     <div class="card p-4 sm:p-6">
@@ -86,6 +96,74 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         </button>
       </div>
       <div id="day-modal-list" class="space-y-1"></div>
+    </div>
+  </div>
+
+  <!-- Share (read-only web link) popup -->
+  <div id="share-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="share-backdrop absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-base font-semibold">Share this calendar</h2>
+        <button type="button" class="share-close icon-button btn-ghost p-1.5" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="share-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
+
+      <form id="share-form">
+        <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+          Create a link that shows a read-only calendar to anyone who has it, without logging in. Notes are never shared. Manage or delete links in Settings.
+        </p>
+
+        <label class="label" for="share-name">Name</label>
+        <input id="share-name" class="input mb-4" type="text" maxlength="100" placeholder="Family" required />
+
+        <div class="label">Event types to share</div>
+        <div id="share-types" class="space-y-1.5 mb-4">
+          {eventTypes.map((et) => (
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" class="share-type" value={et.id} checked />
+              {et.name}
+            </label>
+          ))}
+          {eventTypes.length === 0 && (
+            <p class="text-sm text-zinc-600 dark:text-zinc-300">You have no event types yet.</p>
+          )}
+        </div>
+
+        <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
+          <input type="checkbox" id="share-photos" />
+          Show card photos
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer mb-1">
+          <input type="checkbox" id="share-ages" />
+          Show ages and years
+        </label>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
+          Shows "Turns 37" style labels. Off keeps birth years out of the link.
+        </p>
+
+        <button type="submit" id="share-create-btn" class="btn-primary">Create link</button>
+      </form>
+
+      <div id="share-created" class="hidden">
+        <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+          Anyone with this link can see the dates you shared, so only send it to people you trust. Delete it in Settings to stop sharing.
+        </p>
+        <label class="label" for="share-url">Link</label>
+        <div class="flex gap-2 mb-2">
+          <input id="share-url" class="input" type="text" readonly />
+          <button type="button" id="share-copy-btn" class="btn-secondary flex-shrink-0">Copy</button>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+          <button type="button" id="share-another-btn" class="btn-secondary">Create another</button>
+          <a href="/settings#shares" class="btn-secondary">Manage links</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -139,120 +217,22 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
   </script>
   <script>
     import { avatarHtml, escapeHtml } from "../lib/avatar.js";
-    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber, occursOn } from "../lib/dates.js";
+    import { createMonthGrid } from "../lib/calendarGrid.js";
+    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber } from "../lib/dates.js";
+    import { copyText, shareUrl } from "../lib/shares.js";
     import { lockScroll, unlockScroll } from "../lib/scrollLock.js";
 
     const people = window.__CANDLR_PEOPLE__;
 
-    // Every date; which ones land on a given day depends on its type's cadence
-    // (see occursOn in lib/dates.js).
-    const allEntries = people.flatMap((person) => person.events.map((event) => ({ person, event })));
-
-    const today = new Date();
-    let viewYear = today.getFullYear();
-    let viewMonth = today.getMonth() + 1; // 1-12
-
-    const monthLabel = document.getElementById("cal-month-label");
-    const grid = document.getElementById("cal-grid");
-
-    function daysInMonth(year, month) {
-      return new Date(year, month, 0).getDate();
-    }
-
-    // 0 = Monday .. 6 = Sunday, matching the Mon-Sun header row above.
-    function mondayIndex(year, month, day) {
-      const jsDay = new Date(year, month - 1, day).getDay();
-      return (jsDay + 6) % 7;
-    }
-
-    function renderCalendar() {
-      monthLabel.textContent = `${MONTH_NAMES[viewMonth - 1]} ${viewYear}`;
-      grid.innerHTML = "";
-
-      const daysThisMonth = daysInMonth(viewYear, viewMonth);
-      const leading = mondayIndex(viewYear, viewMonth, 1);
-
-      let prevMonth = viewMonth - 1;
-      let prevYear = viewYear;
-      if (prevMonth < 1) {
-        prevMonth = 12;
-        prevYear -= 1;
-      }
-      const daysPrevMonth = daysInMonth(prevYear, prevMonth);
-
-      let nextMonth = viewMonth + 1;
-      let nextYear = viewYear;
-      if (nextMonth > 12) {
-        nextMonth = 1;
-        nextYear += 1;
-      }
-
-      const totalCells = Math.ceil((leading + daysThisMonth) / 7) * 7;
-
-      for (let i = 0; i < totalCells; i++) {
-        let cellMonth = viewMonth;
-        let cellYear = viewYear;
-        let cellDay;
-        let outside = false;
-
-        if (i < leading) {
-          cellMonth = prevMonth;
-          cellYear = prevYear;
-          cellDay = daysPrevMonth - leading + i + 1;
-          outside = true;
-        } else if (i >= leading + daysThisMonth) {
-          cellMonth = nextMonth;
-          cellYear = nextYear;
-          cellDay = i - leading - daysThisMonth + 1;
-          outside = true;
-        } else {
-          cellDay = i - leading + 1;
-        }
-
-        const isToday =
-          !outside &&
-          viewYear === today.getFullYear() &&
-          viewMonth === today.getMonth() + 1 &&
-          cellDay === today.getDate();
-        // Skip events that haven't happened yet as of this cell's year -
-        // a birthday shouldn't appear on the calendar before it occurred.
-        const entries = allEntries.filter(({ event }) => occursOn(event, cellYear, cellMonth, cellDay));
-
-        const cell = document.createElement(entries.length ? "button" : "div");
-        if (entries.length) cell.type = "button";
-        cell.className = [
-          "aspect-square rounded-lg p-1 sm:p-1.5 flex flex-col items-start gap-0.5 text-left border transition-colors",
-          outside ? "opacity-40" : "",
-          isToday ? "border-accent dark:border-accent-light bg-accent/10 dark:bg-accent-light/10" : "border-transparent",
-          entries.length ? "hover:bg-stone-50 dark:hover:bg-white/5 cursor-pointer" : "cursor-default",
-        ]
-          .filter(Boolean)
-          .join(" ");
-
-        const dayNumClass = isToday
-          ? "font-semibold text-accent dark:text-accent-light"
-          : "text-zinc-600 dark:text-zinc-300";
-        let html = `<span class="text-xs sm:text-sm ${dayNumClass}">${cellDay}</span>`;
-
-        if (entries.length === 1) {
-          html += `<div class="mt-1 sm:mt-1.5">${avatarHtml(entries[0].person, "w-4 h-4 sm:w-5 sm:h-5 text-[8px]")}</div>`;
-        } else if (entries.length > 1) {
-          html += `<div class="mt-1 sm:mt-1.5 grid grid-cols-2 gap-0.5 w-full max-w-[34px] sm:max-w-[42px] items-center">
-            ${avatarHtml(entries[0].person, "w-full aspect-square min-w-0 text-[8px]")}
-            <div class="w-full aspect-square min-w-0 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
-              <span class="text-[7px] sm:text-[8px] font-medium text-zinc-700 dark:text-zinc-200">+${entries.length - 1}</span>
-            </div>
-          </div>`;
-        }
-
-        cell.innerHTML = html;
-        if (entries.length) {
-          cell.setAttribute("aria-label", `${MONTH_NAMES[cellMonth - 1]} ${cellDay}: ${entries.length} ${entries.length === 1 ? "event" : "events"}`);
-          cell.addEventListener("click", () => openDayModal(cellMonth, cellDay, cellYear, entries));
-        }
-        grid.appendChild(cell);
-      }
-    }
+    const { render: renderCalendar, today } = createMonthGrid({
+      people,
+      grid: document.getElementById("cal-grid"),
+      monthLabel: document.getElementById("cal-month-label"),
+      prevBtn: document.getElementById("cal-prev-btn"),
+      nextBtn: document.getElementById("cal-next-btn"),
+      todayBtn: document.getElementById("cal-today-btn"),
+      onOpenDay: (month, day, year, entries) => openDayModal(month, day, year, entries),
+    });
 
     // ── Day popup ──
     const dayModal = document.getElementById("day-modal");
@@ -295,6 +275,88 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
     dayModal.querySelectorAll(".day-close").forEach((el) => el.addEventListener("click", closeDayModal));
     dayModal.querySelector(".day-backdrop").addEventListener("click", closeDayModal);
+
+    // ── Share (read-only web link) ──
+    const shareModal = document.getElementById("share-modal");
+    const shareStatus = document.getElementById("share-status");
+    const shareForm = document.getElementById("share-form");
+    const shareCreated = document.getElementById("share-created");
+    const shareName = document.getElementById("share-name");
+    const sharePhotos = document.getElementById("share-photos");
+    const shareAges = document.getElementById("share-ages");
+    const shareUrlInput = document.getElementById("share-url");
+    const shareCopyBtn = document.getElementById("share-copy-btn");
+    const shareCreateBtn = document.getElementById("share-create-btn");
+
+    function showShareStatus(message) {
+      shareStatus.textContent = message;
+      shareStatus.className =
+        "text-sm px-3.5 py-2.5 rounded-lg mb-4 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400";
+    }
+
+    function openShareModal() {
+      shareStatus.classList.add("hidden");
+      const wasHidden = shareModal.classList.contains("hidden");
+      shareModal.classList.remove("hidden");
+      if (wasHidden) lockScroll();
+      shareName.focus();
+    }
+
+    function closeShareModal() {
+      const wasVisible = !shareModal.classList.contains("hidden");
+      shareModal.classList.add("hidden");
+      if (wasVisible) unlockScroll();
+    }
+
+    shareForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      shareStatus.classList.add("hidden");
+      const ids = [...shareModal.querySelectorAll(".share-type:checked")].map((el) => Number(el.value));
+      if (ids.length === 0) {
+        showShareStatus("Select at least one event type to share");
+        return;
+      }
+      shareCreateBtn.disabled = true;
+      try {
+        const res = await fetch("/api/shares", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: shareName.value, event_type_ids: ids, show_photos: sharePhotos.checked, show_ages: shareAges.checked }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not create the link");
+        shareUrlInput.value = shareUrl(data.token);
+        shareForm.classList.add("hidden");
+        shareCreated.classList.remove("hidden");
+      } catch (err) {
+        showShareStatus(err.message);
+      } finally {
+        shareCreateBtn.disabled = false;
+      }
+    });
+
+    shareCopyBtn.addEventListener("click", async () => {
+      if (await copyText(shareUrlInput.value, shareUrlInput)) {
+        shareCopyBtn.textContent = "Copied";
+        setTimeout(() => (shareCopyBtn.textContent = "Copy"), 1500);
+      } else {
+        showShareStatus("Could not copy, select the link and copy it manually");
+      }
+    });
+
+    document.getElementById("share-another-btn").addEventListener("click", () => {
+      shareForm.reset();
+      shareForm.classList.remove("hidden");
+      shareCreated.classList.add("hidden");
+      shareName.focus();
+    });
+    shareUrlInput.addEventListener("focus", () => shareUrlInput.select());
+    document.getElementById("share-open-btn").addEventListener("click", openShareModal);
+    shareModal.querySelectorAll(".share-close").forEach((el) => el.addEventListener("click", closeShareModal));
+    shareModal.querySelector(".share-backdrop").addEventListener("click", closeShareModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !shareModal.classList.contains("hidden")) closeShareModal();
+    });
 
     // ── Subscribe (iCalendar feed) ──
     const feedModal = document.getElementById("feed-modal");
@@ -424,31 +486,6 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     feedModal.querySelector(".feed-backdrop").addEventListener("click", closeFeedModal);
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !feedModal.classList.contains("hidden")) closeFeedModal();
-    });
-
-    // ── Navigation ──
-    document.getElementById("cal-prev-btn").addEventListener("click", () => {
-      viewMonth -= 1;
-      if (viewMonth < 1) {
-        viewMonth = 12;
-        viewYear -= 1;
-      }
-      renderCalendar();
-    });
-
-    document.getElementById("cal-next-btn").addEventListener("click", () => {
-      viewMonth += 1;
-      if (viewMonth > 12) {
-        viewMonth = 1;
-        viewYear += 1;
-      }
-      renderCalendar();
-    });
-
-    document.getElementById("cal-today-btn").addEventListener("click", () => {
-      viewYear = today.getFullYear();
-      viewMonth = today.getMonth() + 1;
-      renderCalendar();
     });
 
     renderCalendar();

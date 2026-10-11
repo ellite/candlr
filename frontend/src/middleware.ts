@@ -8,6 +8,8 @@ const PUBLIC_PAGES = [
   "/oidc-callback",
   "/forgot-password",
   "/reset-password",
+  // Read-only shared calendars; the token in the URL is the credential.
+  "/shared/",
 ];
 
 const PUBLIC_API_ROUTES = [
@@ -26,6 +28,9 @@ const PUBLIC_API_ROUTES = [
   // Trailing slash matters: only the token-in-URL .ics route is public, not
   // the session-authenticated /api/calendar/feed management endpoints.
   "/api/calendar/feed/",
+  // Same idea for shared web views: only the token-in-URL read routes
+  // (/api/share/..., singular) are public, never /api/shares management.
+  "/api/share/",
 ];
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -42,6 +47,18 @@ const SECURITY_HEADERS: Record<string, string> = {
     "frame-ancestors 'none';",
 };
 
+function withHeaders(response: Response, pathname: string): Response {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+  // Keep the secret token out of referrers and search indexes.
+  if (pathname.startsWith("/shared/") || pathname.startsWith("/api/share/")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return response;
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
@@ -50,11 +67,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     PUBLIC_API_ROUTES.some((r) => pathname.startsWith(r)) ||
     pathname.startsWith("/_astro")
   ) {
-    const response = await next();
-    for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-      response.headers.set(key, value);
-    }
-    return response;
+    return withHeaders(await next(), pathname);
   }
 
   const token = context.cookies.get("candlr_token");
@@ -62,9 +75,5 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect("/login");
   }
 
-  const response = await next();
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-    response.headers.set(key, value);
-  }
-  return response;
+  return withHeaders(await next(), pathname);
 });

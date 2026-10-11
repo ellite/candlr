@@ -339,6 +339,18 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       </div>
     </section>
 
+    <section id="shares" class="card p-6">
+      <h2 class="text-sm font-medium mb-1">Shared calendars</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+        Read-only web links to your calendar that work without logging in. Each one shows only the event types you picked, and never notes. Create one from the Share button on the Calendar page. Deleting a link stops it working straight away.
+      </p>
+      <ul id="share-list" class="space-y-1.5"></ul>
+      <p id="share-empty" class="hidden text-sm text-zinc-500 dark:text-zinc-400">
+        Nothing is shared yet. <a href="/calendar" class="font-medium hover:underline">Open the calendar</a> to create a link.
+      </p>
+      <div id="share-error" class="hidden text-sm px-3.5 py-2.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"></div>
+    </section>
+
     <section class="card p-6">
       <h2 class="text-sm font-medium mb-1">Import and export</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
@@ -495,6 +507,24 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <button id="carddav-disconnect-confirm-btn" type="button"
           class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
           Disconnect
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete shared calendar: bottom sheet on phones, centered dialog on desktop -->
+  <div id="delete-share-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div id="delete-share-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
+      <h2 class="text-base font-semibold mb-1.5">Delete <span id="delete-share-name"></span>?</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
+        Anyone with this link will no longer be able to see the calendar. This cannot be undone.
+      </p>
+      <div class="flex gap-2 justify-end">
+        <button id="delete-share-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="delete-share-confirm-btn" type="button"
+          class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
+          Delete
         </button>
       </div>
     </div>
@@ -1334,5 +1364,166 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         },
       });
     }
+  </script>
+
+  <script>
+    import { copyText, listShares, shareUrl } from "../lib/shares.js";
+    import { lockScroll, unlockScroll } from "../lib/scrollLock.js";
+    import { showToast } from "../lib/toast.js";
+
+    const shareList = document.getElementById("share-list");
+    const shareEmpty = document.getElementById("share-empty");
+    const shareError = document.getElementById("share-error");
+
+    function shareRow(share) {
+      const li = document.createElement("li");
+      li.className = "rounded-lg bg-stone-50 dark:bg-white/5";
+      const header = document.createElement("div");
+      header.className = "flex items-center gap-2 pr-2 py-1.5";
+
+      // The whole name area toggles the settings below it.
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.className = "flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left";
+      toggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>`;
+      const name = document.createElement("span");
+      name.className = "text-sm font-medium truncate";
+      name.textContent = share.name;
+      toggle.append(name);
+      const chevron = toggle.firstElementChild;
+
+      const details = document.createElement("dl");
+      details.className = "hidden px-3 pt-2 pb-3 pl-9 space-y-2 text-sm";
+      const detailRow = (label, valueEl) => {
+        const row = document.createElement("div");
+        row.className = "flex items-start justify-between gap-4";
+        const dt = document.createElement("dt");
+        dt.className = "text-zinc-600 dark:text-zinc-300 flex-shrink-0";
+        dt.textContent = label;
+        const dd = document.createElement("dd");
+        dd.className = "text-right min-w-0";
+        dd.append(valueEl);
+        row.append(dt, dd);
+        return row;
+      };
+      const chips = document.createElement("div");
+      chips.className = "flex flex-wrap justify-end gap-1";
+      for (const t of share.event_types) {
+        const chip = document.createElement("span");
+        chip.className = "text-xs px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700";
+        chip.textContent = t.name;
+        chips.append(chip);
+      }
+      if (!share.event_types.length) chips.textContent = "None";
+      const yesNo = (on) => {
+        const el = document.createElement("span");
+        el.textContent = on ? "Shown" : "Hidden";
+        el.className = on ? "font-medium" : "text-zinc-500 dark:text-zinc-400";
+        return el;
+      };
+      details.append(
+        detailRow("Event types", chips),
+        detailRow("Photos", yesNo(share.show_photos)),
+        detailRow("Ages and years", yesNo(share.show_ages)),
+      );
+      toggle.addEventListener("click", () => {
+        const open = details.classList.toggle("hidden") === false;
+        toggle.setAttribute("aria-expanded", String(open));
+        chevron.classList.toggle("rotate-90", open);
+      });
+
+      const iconButton = (label, hoverClass, path) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `icon-button inline-flex items-center justify-center border bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 ${hoverClass} flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg transition-colors`;
+        btn.title = label;
+        btn.setAttribute("aria-label", label);
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px] block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="${path}" /></svg>`;
+        return btn;
+      };
+
+      const copy = iconButton(
+        "Copy link",
+        "hover:text-zinc-900 dark:hover:text-white",
+        "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z",
+      );
+      copy.addEventListener("click", async () => {
+        const probe = Object.assign(document.createElement("input"), { value: shareUrl(share.token) });
+        document.body.appendChild(probe);
+        const ok = await copyText(probe.value, probe);
+        probe.remove();
+        showToast(ok ? "Link copied" : "Could not copy the link", ok ? "success" : "error");
+      });
+
+      // Deleting breaks the link for everyone who has it, so it asks first.
+      const del = iconButton(
+        "Delete",
+        "hover:text-red-600 dark:hover:text-red-400",
+        "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+      );
+      del.addEventListener("click", () => openDeleteShare(share, li));
+
+      header.append(toggle, copy, del);
+      li.append(header, details);
+      return li;
+    }
+
+    // ── Delete confirmation ──
+    const deleteShareModal = document.getElementById("delete-share-modal");
+    const deleteShareName = document.getElementById("delete-share-name");
+    const deleteShareConfirm = document.getElementById("delete-share-confirm-btn");
+    let pendingDelete = null;
+
+    function openDeleteShare(share, row) {
+      pendingDelete = { share, row };
+      deleteShareName.textContent = share.name;
+      const wasHidden = deleteShareModal.classList.contains("hidden");
+      deleteShareModal.classList.remove("hidden");
+      if (wasHidden) lockScroll();
+      deleteShareConfirm.focus();
+    }
+
+    function closeDeleteShare() {
+      const wasVisible = !deleteShareModal.classList.contains("hidden");
+      deleteShareModal.classList.add("hidden");
+      pendingDelete = null;
+      if (wasVisible) unlockScroll();
+    }
+
+    deleteShareConfirm.addEventListener("click", async () => {
+      if (!pendingDelete) return;
+      const { share, row } = pendingDelete;
+      deleteShareConfirm.disabled = true;
+      try {
+        const res = await fetch(`/api/shares/${share.id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Could not delete the shared calendar");
+        row.remove();
+        if (!shareList.children.length) shareEmpty.classList.remove("hidden");
+        showToast("Shared calendar deleted");
+      } catch (e) {
+        showToast(e.message, "error");
+      } finally {
+        deleteShareConfirm.disabled = false;
+        closeDeleteShare();
+      }
+    });
+    document.getElementById("delete-share-cancel-btn").addEventListener("click", closeDeleteShare);
+    document.getElementById("delete-share-backdrop").addEventListener("click", closeDeleteShare);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !deleteShareModal.classList.contains("hidden")) closeDeleteShare();
+    });
+
+    // Loaded client-side rather than at render so the links (the secret) are
+    // not baked into the service worker's cached copy of this page.
+    listShares()
+      .then((shares) => {
+        shareList.replaceChildren(...shares.map(shareRow));
+        shareEmpty.classList.toggle("hidden", shares.length > 0);
+      })
+      .catch((e) => {
+        shareError.textContent = e.message;
+        shareError.classList.remove("hidden");
+      });
   </script>
 </Layout>

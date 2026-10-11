@@ -43,7 +43,7 @@ services:
 
       # SMTP (optional) - powers the email notification channel and, once
       # set, turns on forgot/reset password.
-      # - SERVER_URL=http://your-server:4258  # used to build the reset-password link
+      # - SERVER_URL=http://your-server:4258  # used to build links in reset emails and reminders
       # - SMTP_ADDRESS=
       # - SMTP_PORT=587
       # - SMTP_ENCRYPTION=tls  # tls, ssl, or none

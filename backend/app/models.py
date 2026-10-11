@@ -31,6 +31,7 @@ class User(Base):
     password_reset_tokens = relationship("PasswordResetToken", cascade="all, delete-orphan")
     event_types = relationship("EventType", cascade="all, delete-orphan")
     people = relationship("Person", cascade="all, delete-orphan")
+    shares = relationship("Share", cascade="all, delete-orphan")
 
     @property
     def has_password(self) -> bool:
@@ -122,6 +123,33 @@ class EventType(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     events = relationship("Event", back_populates="event_type", cascade="all, delete-orphan")
+
+
+class Share(Base):
+    """A named, read-only web link to the calendar: the unguessable token in
+    the URL is the credential, and it only exposes the chosen event types
+    (never notes, and photos only when show_photos is set)."""
+
+    __tablename__ = "shares"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    show_photos = Column(Boolean, nullable=False, default=False, server_default="0")
+    # Whether the page shows "Turns 37" style labels. When off, a year is
+    # only sent for dates whose cadence needs it to work out occurrences.
+    show_ages = Column(Boolean, nullable=False, default=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    event_types = relationship("EventType", secondary="share_event_types")
+
+
+class ShareEventType(Base):
+    __tablename__ = "share_event_types"
+
+    share_id = Column(Integer, ForeignKey("shares.id", ondelete="CASCADE"), primary_key=True)
+    event_type_id = Column(Integer, ForeignKey("event_types.id", ondelete="CASCADE"), primary_key=True)
 
 
 class Person(Base):

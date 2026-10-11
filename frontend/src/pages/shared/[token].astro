@@ -1,0 +1,158 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Logo from "../../components/Logo.astro";
+import { apiJson } from "../../lib/api";
+
+const { token } = Astro.params;
+
+type EventType = { id: number; name: string; is_default: boolean; interval: number; unit: "day" | "week" | "month" | "year" };
+type SharedEvent = {
+  id: number;
+  event_type: EventType;
+  month: number;
+  day: number;
+  year: number | null;
+  year_known: boolean;
+};
+type SharedCalendar = {
+  name: string;
+  shared_by: string;
+  show_ages: boolean;
+  people: { id: number; name: string; image_url: string | null; events: SharedEvent[] }[];
+};
+
+// No session on purpose: the token in the URL is the credential, so this
+// page never forwards cookies to the backend.
+const calendar = await apiJson<SharedCalendar>(`/share/${encodeURIComponent(token ?? "")}`).catch(() => null);
+// Rendered inline rather than rewritten to /404: that page sits behind the
+// login gate, which a visitor with a dead link doesn't have a session for.
+if (!calendar) Astro.response.status = 404;
+---
+
+{!calendar && (
+  <Layout title="Not found" fullPage>
+    <div class="text-center px-4">
+      <Logo size="md" class="mb-6" />
+      <h1 class="text-lg font-semibold tracking-tight mb-1.5">Calendar not found</h1>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300">This link is no longer shared, or it was mistyped.</p>
+    </div>
+  </Layout>
+)}
+
+{calendar && (
+<Layout title={calendar.name}>
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+    <Logo size="md" class="mb-6" />
+    <div class="mb-6">
+      <h1 class="text-lg font-semibold tracking-tight">{calendar.name}</h1>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">Shared by {calendar.shared_by}</p>
+    </div>
+
+    <div class="card p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-4">
+        <button type="button" id="cal-prev-btn" class="icon-button btn-ghost p-2" aria-label="Previous month">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div class="flex items-center gap-3">
+          <div id="cal-month-label" class="text-base font-semibold tabular-nums"></div>
+          <button type="button" id="cal-today-btn" class="px-2 text-sm sm:text-xs text-zinc-600 dark:text-zinc-300 hover:underline">
+            Today
+          </button>
+        </div>
+        <button type="button" id="cal-next-btn" class="icon-button btn-ghost p-2" aria-label="Next month">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1 mb-1">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <div class="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 py-1">{d}</div>
+        ))}
+      </div>
+
+      <div id="cal-grid" class="grid grid-cols-7 gap-1"></div>
+    </div>
+  </main>
+
+  <div id="day-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="day-backdrop absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="day-modal-title" class="text-base font-semibold"></h2>
+        <button type="button" class="day-close icon-button btn-ghost p-1.5" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="day-modal-list" class="space-y-1"></div>
+    </div>
+  </div>
+
+  <script define:vars={{ initialPeople: calendar.people, showAges: calendar.show_ages }}>
+    window.__CANDLR_PEOPLE__ = initialPeople;
+    window.__CANDLR_SHOW_AGES__ = showAges;
+  </script>
+  <script>
+    import { avatarHtml, escapeHtml } from "../../lib/avatar.js";
+    import { createMonthGrid } from "../../lib/calendarGrid.js";
+    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber } from "../../lib/dates.js";
+    import { lockScroll, unlockScroll } from "../../lib/scrollLock.js";
+
+    const { render, today } = createMonthGrid({
+      people: window.__CANDLR_PEOPLE__,
+      grid: document.getElementById("cal-grid"),
+      monthLabel: document.getElementById("cal-month-label"),
+      prevBtn: document.getElementById("cal-prev-btn"),
+      nextBtn: document.getElementById("cal-next-btn"),
+      todayBtn: document.getElementById("cal-today-btn"),
+      onOpenDay: openDayModal,
+    });
+
+    const dayModal = document.getElementById("day-modal");
+    const dayModalTitle = document.getElementById("day-modal-title");
+    const dayModalList = document.getElementById("day-modal-list");
+
+    function openDayModal(month, day, year, entries) {
+      dayModalTitle.textContent = `${MONTH_NAMES[month - 1]} ${day}`;
+      dayModalList.innerHTML = "";
+      for (const { person, event } of entries) {
+        const row = document.createElement("div");
+        row.className = "flex items-center gap-3 p-2.5";
+        const age = !window.__CANDLR_SHOW_AGES__ ? "" : ageLabelForOccurrence(event, new Date(year, month - 1, day), today);
+        row.innerHTML = `
+          ${avatarHtml(person, "w-9 h-9 text-xs")}
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium truncate">${escapeHtml(person.name)}</div>
+            <div class="text-xs text-zinc-600 dark:text-zinc-300 truncate">
+              ${escapeHtml(event.event_type.name)}${age ? ` &middot; ${highlightNumber(age)}` : ""}
+            </div>
+          </div>
+        `;
+        dayModalList.appendChild(row);
+      }
+      const wasHidden = dayModal.classList.contains("hidden");
+      dayModal.classList.remove("hidden");
+      if (wasHidden) lockScroll();
+    }
+
+    function closeDayModal() {
+      const wasVisible = !dayModal.classList.contains("hidden");
+      dayModal.classList.add("hidden");
+      if (wasVisible) unlockScroll();
+    }
+
+    dayModal.querySelectorAll(".day-close").forEach((el) => el.addEventListener("click", closeDayModal));
+    dayModal.querySelector(".day-backdrop").addEventListener("click", closeDayModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDayModal();
+    });
+
+    render();
+  </script>
+</Layout>
+)}
