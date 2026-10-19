@@ -110,6 +110,14 @@ class CalendarFeedTests(unittest.TestCase):
         self.assertEqual(text.count("RRULE:FREQ=YEARLY"), 3)
         self.assertEqual(len({line for line in text.split("\r\n") if line.startswith("UID:")}), 3)
 
+    def test_feed_puts_address_in_location(self):
+        self._add(1, "Alex", 3, 5, 1990)
+        with self.sessions() as db:
+            db.query(Person).filter_by(name="Alex").one().address = "1 High St\nLeeds, UK"
+            db.commit()
+        _, res = self._feed()
+        self.assertIn("LOCATION:1 High St\\, Leeds\\, UK", unfold(res.text))
+
     def test_feed_is_empty_but_valid_without_cards(self):
         _, res = self._feed()
         self.assertNotIn("BEGIN:VEVENT", res.text)

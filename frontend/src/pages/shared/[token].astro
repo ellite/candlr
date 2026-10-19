@@ -18,7 +18,7 @@ type SharedCalendar = {
   name: string;
   shared_by: string;
   show_ages: boolean;
-  people: { id: number; name: string; image_url: string | null; events: SharedEvent[] }[];
+  people: { id: number; name: string; image_url: string | null; address: string | null; events: SharedEvent[] }[];
 };
 
 // No session on purpose: the token in the URL is the credential, so this
@@ -131,6 +131,7 @@ if (!calendar) Astro.response.status = 404;
             <div class="text-xs text-zinc-600 dark:text-zinc-300 truncate">
               ${escapeHtml(event.event_type.name)}${age ? ` &middot; ${highlightNumber(age)}` : ""}
             </div>
+            ${person.address ? `<div class="text-xs text-zinc-500 dark:text-zinc-400 whitespace-pre-line [overflow-wrap:anywhere] mt-0.5">${escapeHtml(person.address)}</div>` : ""}
           </div>
         `;
         dayModalList.appendChild(row);

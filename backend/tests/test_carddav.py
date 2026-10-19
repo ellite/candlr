@@ -186,6 +186,20 @@ class SyncTests(CardDavTestBase):
         self.assertEqual((result.added, result.updated, result.removed), (0, 0, 0))
         self.assertEqual(len(self.cards()), 2)
 
+    def test_address_follows_the_contact_but_is_not_erased_by_its_absence(self):
+        self.server.cards = [("/a.vcf", vcard("u1", "Alex Doe", "BDAY:1990-03-05", "ADR:;;12 Oak Lane;Leeds;;LS1 1AA;UK"))]
+        self.sync()
+        with self.sessions() as db:
+            self.assertEqual(db.query(Person).one().address, "12 Oak Lane\nLeeds\nLS1 1AA\nUK")
+        self.server.cards = [("/a.vcf", vcard("u1", "Alex Doe", "BDAY:1990-03-05", "ADR:;;3 New St;York;;YO1;UK"))]
+        self.sync()
+        with self.sessions() as db:
+            self.assertEqual(db.query(Person).one().address, "3 New St\nYork\nYO1\nUK")
+        self.server.cards = [("/a.vcf", vcard("u1", "Alex Doe", "BDAY:1990-03-05"))]
+        self.sync()
+        with self.sessions() as db:
+            self.assertEqual(db.query(Person).one().address, "3 New St\nYork\nYO1\nUK")
+
     def test_rename_and_date_change_update_the_same_card(self):
         self.sync()
         with self.sessions() as db:

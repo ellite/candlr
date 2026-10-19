@@ -152,7 +152,7 @@ def bulk_people(data: BulkRequest, current_user: User = Depends(get_current_user
 def create_person(data: PersonCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _check_fits_type(_get_event_type(db, current_user.id, data.event.event_type_id), data.event)
 
-    person = Person(user_id=current_user.id, name=data.name.strip())
+    person = Person(user_id=current_user.id, name=data.name.strip(), address=data.address)
     db.add(person)
     db.flush()
     db.add(Event(person_id=person.id, **data.event.model_dump()))
@@ -185,6 +185,8 @@ def update_person(
             for field, value in event_data.model_dump(exclude={"id"}).items():
                 setattr(events_by_id[event_data.id], field, value)
     person.name = data.name.strip()
+    if "address" in data.model_fields_set:
+        person.address = data.address
     db.commit()
     return _get_person(db, current_user.id, person_id)
 

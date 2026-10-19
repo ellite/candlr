@@ -140,6 +140,8 @@ class Share(Base):
     # Whether the page shows "Turns 37" style labels. When off, a year is
     # only sent for dates whose cadence needs it to work out occurrences.
     show_ages = Column(Boolean, nullable=False, default=False, server_default="0")
+    # Whether the page shows each card's postal address.
+    show_addresses = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     event_types = relationship("EventType", secondary="share_event_types")
@@ -165,6 +167,8 @@ class Person(Base):
     # Filename under backend/data/images/, not a full path - keeps the DB
     # portable if the data directory ever moves.
     image_filename = Column(String, nullable=True)
+    # Free-text postal address, kept on the card rather than in event notes.
+    address = Column(Text, nullable=True)
     # Where the card came from when it is kept in sync with an address book
     # ("carddav"), and that contact's UID there. Null for hand-made cards.
     source = Column(String, nullable=True)

@@ -61,7 +61,7 @@ class DataTransferTests(unittest.TestCase):
             custom = EventType(user_id=1, name="Graduation", sort_order=2)
             db.add(custom)
             db.flush()
-            alex = Person(user_id=1, name="Alex, \"Al\" Ñandú")
+            alex = Person(user_id=1, name="Alex, \"Al\" Ñandú", address="1 High St, Flat 2\nLondon")
             sam = Person(user_id=1, name="Sam")
             db.add_all([alex, sam])
             db.flush()
@@ -77,7 +77,7 @@ class DataTransferTests(unittest.TestCase):
     def _snapshot(self, user_id):
         with self.sessions() as db:
             rows = (
-                db.query(Person.name, EventType.name, Event.month, Event.day, Event.year, Event.year_known, Event.notes, Event.notify)
+                db.query(Person.name, EventType.name, Event.month, Event.day, Event.year, Event.year_known, Event.notes, Event.notify, Person.address)
                 .join(Event, Event.person_id == Person.id)
                 .join(EventType, Event.event_type_id == EventType.id)
                 .filter(Person.user_id == user_id)
@@ -212,6 +212,23 @@ class DataTransferTests(unittest.TestCase):
         self.assertIn(("Sam Smith", "Birthday", 2, 29, None), rows)
         self.assertIn(("Apple Person", "Birthday", 7, 4, None), rows)
         self.assertIn(("Apple Person", "Anniversary", 9, 9, 2001), rows)
+
+    def test_vcf_imports_address(self):
+        vcf = (
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Alex Doe\r\nBDAY:1990-03-05\r\n"
+            "ADR;TYPE=HOME:;;12 Oak Lane;Leeds;West Yorkshire;LS1 1AA;UK\r\nEND:VCARD\r\n"
+        )
+        self.assertEqual(self._upload("c.vcf", vcf).status_code, 200)
+        self.assertEqual(self._snapshot(1)[0][-1], "12 Oak Lane\nLeeds\nWest Yorkshire\nLS1 1AA\nUK")
+
+    def test_import_fills_missing_address_but_never_overwrites(self):
+        self._seed_cards()
+        csv_text = 'name,month,day,address\nSam,1,1,5 New Rd\n"Alex, ""Al"" Ñandú",1,1,Elsewhere\n'
+        self.assertEqual(self._upload("a.csv", csv_text).status_code, 200)
+        with self.sessions() as db:
+            addresses = {p.name: p.address for p in db.query(Person).filter_by(user_id=1)}
+        self.assertEqual(addresses["Sam"], "5 New Rd")
+        self.assertEqual(addresses['Alex, "Al" Ñandú'], "1 High St, Flat 2\nLondon")
 
     def test_vcf_folded_lines_and_reimport_is_noop(self):
         vcf = "BEGIN:VCARD\nVERSION:3.0\nFN:Long\n  Name\nBDAY:1980-01-02\nEND:VCARD\n"

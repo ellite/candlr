@@ -20,8 +20,9 @@ from .events_logic import MAX_INTERVAL, UNITS, start_year_problem
 from .models import Event, EventType, Person
 from .schemas import EventInput
 
-CSV_COLUMNS = ["name", "type", "month", "day", "year", "notes", "notify"]
+CSV_COLUMNS = ["name", "type", "month", "day", "year", "notes", "notify", "address"]
 MAX_NAME_LENGTH = 100
+MAX_ADDRESS_LENGTH = 500
 MAX_TYPE_LENGTH = 64
 MAX_ERRORS_REPORTED = 20
 
@@ -50,6 +51,8 @@ class ParsedEvent:
 class ParsedFile:
     # Keyed by lowercased name so same-named rows land on one card.
     people: dict[str, tuple[str, list[ParsedEvent]]] = field(default_factory=dict)
+    # Address per card, same keys. The first non-empty one in the file wins.
+    addresses: dict[str, str] = field(default_factory=dict)
     # Cadence (interval, unit) for event types a JSON file defines, keyed by
     # lowercased name. Only used when the import has to create the type.
     type_cadences: dict[str, tuple[int, str]] = field(default_factory=dict)
@@ -58,6 +61,10 @@ class ParsedFile:
 
     def add(self, name: str, event: ParsedEvent) -> None:
         self.people.setdefault(name.lower(), (name, []))[1].append(event)
+
+    def add_address(self, name: str, address: Optional[str]) -> None:
+        if address:
+            self.addresses.setdefault(name.lower(), address)
 
     def reject(self, message: str) -> None:
         self.skipped += 1
@@ -93,6 +100,7 @@ def export_json(people: list[Person], event_types: list[EventType]) -> str:
         "people": [
             {
                 "name": person.name,
+                "address": person.address,
                 "events": [
                     {
                         "type": event.event_type.name,
@@ -126,6 +134,7 @@ def export_csv(people: list[Person]) -> str:
                     event.year if event.year_known and event.year else "",
                     event.notes or "",
                     "true" if event.notify else "false",
+                    person.address or "",
                 ]
             )
     # BOM so Excel opens the file as UTF-8 instead of guessing a code page.
@@ -219,7 +228,9 @@ def parse_csv(text: str) -> ParsedFile:
             month, day, year = cell(row, "month"), cell(row, "day"), cell(row, "year")
             if not (month or "").strip() and not (day or "").strip() and has_date:
                 month, day, year = _split_date(cell(row, "date") or "")
+            address = _clean_text(cell(row, "address"), MAX_ADDRESS_LENGTH, "address")
             parsed.add(name, _build_event(cell(row, "type"), month, day, year, cell(row, "notes"), cell(row, "notify")))
+            parsed.add_address(name, address)
         except ValueError as e:
             parsed.reject(f"Row {line}: {e}")
     return parsed
@@ -254,6 +265,11 @@ def parse_json(text: str) -> ParsedFile:
             parsed.reject(f"{label}: {e}")
             continue
         label = f"{name!r}"
+        try:
+            address = _clean_text(person.get("address"), MAX_ADDRESS_LENGTH, "address")
+        except ValueError as e:
+            parsed.reject(f"{label}: {e}")
+            address = None
         events = person.get("events")
         if not isinstance(events, list) or not events:
             parsed.reject(f"{label}: needs at least one event")
@@ -273,6 +289,7 @@ def parse_json(text: str) -> ParsedFile:
                         event.get("notify"),
                     ),
                 )
+                parsed.add_address(name, address)
             except ValueError as e:
                 parsed.reject(f"{label}: {e}")
     return parsed
@@ -324,6 +341,7 @@ class ParsedCard:
     events: list[ParsedEvent] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     label: str = "vCard"
+    address: Optional[str] = None
 
 
 def parse_vcards(text: str) -> list[ParsedCard]:
@@ -347,6 +365,7 @@ def parse_vcards(text: str) -> list[ParsedCard]:
         fn = ""
         uid = None
         n_parts: list[str] = []
+        adr = None
         dates: list[tuple[str, str, str]] = []
         for line in lines:
             head, _, value = line.partition(":")
@@ -357,6 +376,10 @@ def parse_vcards(text: str) -> list[ParsedCard]:
                 fn = _vcard_text(value)
             elif prop == "UID":
                 uid = value.strip() or None
+            elif prop == "ADR" and adr is None:
+                # po box;extended;street;city;region;postal code;country
+                parts = [_vcard_text(part) for part in value.split(";")]
+                adr = "\n".join(part for part in parts if part) or None
             elif prop == "N":
                 n_parts = [_vcard_text(part) for part in value.split(";")]
             elif prop in _VCARD_DATES and value.strip():
@@ -371,6 +394,11 @@ def parse_vcards(text: str) -> list[ParsedCard]:
                 card.name = _clean_text(fn, MAX_NAME_LENGTH, "name")
                 if not card.name:
                     raise ValueError("no name (FN or N)")
+            except ValueError as e:
+                card.errors.append(f"{card.label}: {e}")
+        if card.name and adr:
+            try:
+                card.address = _clean_text(adr, MAX_ADDRESS_LENGTH, "address")
             except ValueError as e:
                 card.errors.append(f"{card.label}: {e}")
         counts: dict[str, int] = {}
@@ -399,6 +427,8 @@ def parse_vcf(text: str) -> ParsedFile:
             parsed.reject(message)
         for event in card.events:
             parsed.add(card.name, event)
+        if card.events:
+            parsed.add_address(card.name, card.address)
     return parsed
 
 
@@ -433,6 +463,10 @@ def apply_import(db: Session, user_id: int, parsed: ParsedFile) -> ImportResult:
     existing = {}
     for person in load_user_people(db, user_id):
         existing.setdefault(person.name.lower(), person)
+    # Only fill in an address, never replace one the card already has.
+    def fill_address(person: Person, key: str) -> None:
+        if not person.address and parsed.addresses.get(key):
+            person.address = parsed.addresses[key]
 
     for key, (name, events) in parsed.people.items():
         person = existing.get(key)
@@ -476,7 +510,7 @@ def apply_import(db: Session, user_id: int, parsed: ParsedFile) -> ImportResult:
             seen.add(slot)
 
             if not person:
-                person = Person(user_id=user_id, name=name)
+                person = Person(user_id=user_id, name=name, address=parsed.addresses.get(key))
                 db.add(person)
                 db.flush()
                 existing[key] = person
@@ -494,6 +528,8 @@ def apply_import(db: Session, user_id: int, parsed: ParsedFile) -> ImportResult:
                 )
             )
             result.events_added += 1
+        if person and not created:
+            fill_address(person, key)
         if created:
             result.people_created += 1
 

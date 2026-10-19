@@ -381,7 +381,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <summary class="cursor-pointer">File format</summary>
         <div class="mt-2 space-y-2">
           <p>
-            CSV has one row per date with the columns <code>name, type, month, day, year, notes, notify</code>.
+            CSV has one row per date with the columns <code>name, type, month, day, year, notes, notify, address</code>.
             Rows with the same name become one card. <code>year</code> and <code>notes</code> can be blank,
             and a <code>date</code> column (<code>1990-04-12</code> or <code>04-12</code>) can replace
             <code>month</code>, <code>day</code> and <code>year</code>. A blank <code>type</code> uses your first event type.
@@ -1426,6 +1426,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         detailRow("Event types", chips),
         detailRow("Photos", yesNo(share.show_photos)),
         detailRow("Ages and years", yesNo(share.show_ages)),
+        detailRow("Addresses", yesNo(share.show_addresses)),
       );
       toggle.addEventListener("click", () => {
         const open = details.classList.toggle("hidden") === false;

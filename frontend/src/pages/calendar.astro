@@ -146,6 +146,13 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
         <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
           Shows "Turns 37" style labels. Off keeps birth years out of the link.
         </p>
+        <label class="flex items-center gap-2 text-sm cursor-pointer mb-1">
+          <input type="checkbox" id="share-addresses" />
+          Show addresses
+        </label>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
+          Shows each card's address to anyone with the link. Off keeps it private.
+        </p>
 
         <button type="submit" id="share-create-btn" class="btn-primary">Create link</button>
       </form>
@@ -284,6 +291,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
     const shareName = document.getElementById("share-name");
     const sharePhotos = document.getElementById("share-photos");
     const shareAges = document.getElementById("share-ages");
+    const shareAddresses = document.getElementById("share-addresses");
     const shareUrlInput = document.getElementById("share-url");
     const shareCopyBtn = document.getElementById("share-copy-btn");
     const shareCreateBtn = document.getElementById("share-create-btn");
@@ -321,7 +329,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
         const res = await fetch("/api/shares", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: shareName.value, event_type_ids: ids, show_photos: sharePhotos.checked, show_ages: shareAges.checked }),
+          body: JSON.stringify({ name: shareName.value, event_type_ids: ids, show_photos: sharePhotos.checked, show_ages: shareAges.checked, show_addresses: shareAddresses.checked }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not create the link");

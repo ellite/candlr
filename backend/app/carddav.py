@@ -228,6 +228,10 @@ def apply_cards(db: Session, user_id: int, remote: list[RemoteCard]) -> SyncResu
             db.flush()
             synced[uid] = person
         person.name = card.name
+        # The address book is the master copy, but a contact with no address
+        # doesn't erase one typed in by hand.
+        if card.address:
+            person.address = card.address
 
         by_key = {e.source_key: e for e in person.events if e.source_key}
         unclaimed = [e for e in person.events if not e.source_key]

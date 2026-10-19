@@ -159,6 +159,11 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           <input id="form-name" class="input" type="text" placeholder="Joanna" maxlength="100" />
         </div>
 
+        <div id="form-address-field">
+          <label class="label" for="form-address">Address</label>
+          <textarea id="form-address" class="input" rows="3" maxlength="500" placeholder="For sending a card or gift (optional)"></textarea>
+        </div>
+
         <div id="form-date-picker" class="hidden">
           <p class="label">Dates on this card</p>
           <div id="form-date-buttons" class="flex flex-wrap gap-2"></div>
@@ -591,6 +596,8 @@ import { cardBellHtml } from "../lib/reminders.js";
     const formError = document.getElementById("form-error");
     const formNameField = document.getElementById("form-name-field");
     const formName = document.getElementById("form-name");
+    const formAddressField = document.getElementById("form-address-field");
+    const formAddress = document.getElementById("form-address");
     const formEventType = document.getElementById("form-event-type");
     const formMonth = document.getElementById("form-month");
     const formDay = document.getElementById("form-day");
@@ -640,6 +647,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       formError.classList.add("hidden");
       formImageError.classList.add("hidden");
       formName.value = "";
+      formAddress.value = "";
       formEventType.selectedIndex = 0;
       formMonth.selectedIndex = new Date().getMonth();
       formDay.value = String(new Date().getDate());
@@ -669,19 +677,23 @@ import { cardBellHtml } from "../lib/reminders.js";
       if (mode === "create") {
         formTitle.textContent = "Add a date";
         formNameField.classList.remove("hidden");
+        formAddressField.classList.remove("hidden");
         formImageFields.classList.remove("hidden");
         formSubmitBtn.textContent = "Save";
       } else if (mode === "add-event") {
         formTitle.textContent = "Add another date";
         formNameField.classList.add("hidden");
+        formAddressField.classList.add("hidden");
         formImageFields.classList.add("hidden");
         formSubmitBtn.textContent = "Save";
       } else if (mode === "edit-card") {
         formTitle.textContent = "Edit card";
         formNameField.classList.remove("hidden");
+        formAddressField.classList.remove("hidden");
         formImageFields.classList.remove("hidden");
         formSubmitBtn.textContent = "Save changes";
         formName.value = context.person.name;
+        formAddress.value = context.person.address ?? "";
         existingImageUrl = context.person.image_url;
         setFormImagePreview(null);
         draftEvents = context.person.events.map((ev) => ({
@@ -856,7 +868,7 @@ import { cardBellHtml } from "../lib/reminders.js";
           const res = await fetch("/api/people", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, event: eventPayload() }),
+            body: JSON.stringify({ name, address: formAddress.value.trim() || null, event: eventPayload() }),
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
@@ -883,7 +895,7 @@ import { cardBellHtml } from "../lib/reminders.js";
           const res = await fetch(`/api/people/${formContext.personId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, events: draftEvents }),
+            body: JSON.stringify({ name, address: formAddress.value.trim() || null, events: draftEvents }),
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));

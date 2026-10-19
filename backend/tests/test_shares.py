@@ -122,6 +122,19 @@ class ShareTests(unittest.TestCase):
         # Bob has no date of a shared type, so his photo stays private.
         self.assertEqual(self.client.get(f"/share/{on}/images/bob.jpg").status_code, 404)
 
+    def test_addresses_hidden_unless_enabled(self):
+        with self.sessions() as db:
+            db.query(Person).filter_by(name="Ann").one().address = "9 Elm St"
+            db.commit()
+        off = self._create(event_type_ids=[self.birthday]).json()
+        self.assertFalse(off["show_addresses"])
+        res = self.client.get(f"/share/{off['token']}")
+        self.assertIsNone(res.json()["people"][0]["address"])
+        self.assertNotIn("Elm", res.text)
+        on = self._create(event_type_ids=[self.birthday], show_addresses=True).json()
+        self.assertTrue(on["show_addresses"])
+        self.assertEqual(self.client.get(f"/share/{on['token']}").json()["people"][0]["address"], "9 Elm St")
+
     def test_ages_hidden_unless_enabled(self):
         off = self._create(event_type_ids=[self.birthday]).json()
         self.assertFalse(off["show_ages"])

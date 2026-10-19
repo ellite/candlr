@@ -22,6 +22,7 @@ class ShareCreate(BaseModel):
     event_type_ids: list[int] = Field(min_length=1, max_length=200)
     show_photos: bool = False
     show_ages: bool = False
+    show_addresses: bool = False
 
 
 class ShareOut(BaseModel):
@@ -30,6 +31,7 @@ class ShareOut(BaseModel):
     token: str
     show_photos: bool
     show_ages: bool
+    show_addresses: bool
     event_types: list[EventTypeOut]
 
     model_config = {"from_attributes": True}
@@ -48,6 +50,7 @@ class SharedPerson(BaseModel):
     id: int
     name: str
     image_url: Optional[str]
+    address: Optional[str] = None
     events: list[SharedEvent]
 
 
@@ -101,6 +104,7 @@ def create_share(data: ShareCreate, current_user: User = Depends(get_current_use
         token=secrets.token_urlsafe(32),
         show_photos=data.show_photos,
         show_ages=data.show_ages,
+        show_addresses=data.show_addresses,
         event_types=sorted(types, key=lambda t: t.sort_order),
     )
     db.add(share)
@@ -117,7 +121,7 @@ def delete_share(share_id: int, current_user: User = Depends(get_current_user), 
 
 # Unauthenticated on purpose: the unguessable token in the URL is the
 # credential. Never returns notes, reminder flags or anything outside the
-# share's event types.
+# share's event types, and addresses only when the share turns them on.
 def _find_share(db: Session, token: str) -> Share:
     share = db.query(Share).filter(Share.token == token).first()
     if not share:
@@ -143,6 +147,7 @@ def read_share(token: str, db: Session = Depends(get_db)):
                     if share.show_photos and person.image_filename
                     else None
                 ),
+                address=person.address if share.show_addresses else None,
                 events=[
                     SharedEvent(
                         id=e.id,

@@ -84,6 +84,8 @@ def _event_lines(person: Person, event, user_id: int) -> list[str]:
         f"RRULE:{rule}",
         f"SUMMARY:{escape_text(summary)}",
     ]
+    if person.address:
+        lines.append(f"LOCATION:{escape_text(', '.join(part.strip() for part in person.address.splitlines() if part.strip()))}")
     if event.notes:
         lines.append(f"DESCRIPTION:{escape_text(event.notes)}")
     lines += ["TRANSP:TRANSPARENT", "END:VEVENT"]

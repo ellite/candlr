@@ -1,5 +1,5 @@
 import calendar
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Annotated, Optional, Literal, Union
 from datetime import datetime
 
@@ -189,9 +189,17 @@ class EventOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def _clean_address(value: Optional[str]) -> Optional[str]:
+    value = value.strip() if value else None
+    return value or None
+
+
 class PersonCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    address: Optional[str] = Field(default=None, max_length=500)
     event: EventInput
+
+    _strip_address = field_validator("address")(_clean_address)
 
 
 class ExistingEventInput(EventInput):
@@ -200,12 +208,17 @@ class ExistingEventInput(EventInput):
 
 class PersonUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    # Left out of the request means unchanged; null or blank clears it.
+    address: Optional[str] = Field(default=None, max_length=500)
     events: Optional[list[ExistingEventInput]] = None
+
+    _strip_address = field_validator("address")(_clean_address)
 
 
 class PersonOut(BaseModel):
     id: int
     name: str
+    address: Optional[str] = None
     image_url: Optional[str]
     # "carddav" for a card kept in sync with an address book, else null.
     source: Optional[str] = None

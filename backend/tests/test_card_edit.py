@@ -107,5 +107,22 @@ class CardEditTests(unittest.TestCase):
         self.assertIsNone(self.client.delete("/people/1/image").json()["image_url"])
 
 
+    def test_address_is_saved_kept_when_omitted_and_cleared(self):
+        created = self.client.post(
+            "/people", json={"name": "Sam", "address": "  1 High St\nLondon  ", "event": self.payload}
+        ).json()
+        self.assertEqual(created["address"], "1 High St\nLondon")
+
+        kept = self.client.put(f"/people/{created['id']}", json={"name": "Sam R"}).json()
+        self.assertEqual(kept["address"], "1 High St\nLondon")
+
+        changed = self.client.put(f"/people/{created['id']}", json={"name": "Sam R", "address": "2 Low Rd"}).json()
+        self.assertEqual(changed["address"], "2 Low Rd")
+
+        cleared = self.client.put(f"/people/{created['id']}", json={"name": "Sam R", "address": "  "}).json()
+        self.assertIsNone(cleared["address"])
+        self.assertIsNone(self.person["address"])
+
+
 if __name__ == "__main__":
     unittest.main()
