@@ -73,8 +73,8 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
           {!oidcConfig.disable_password_login && (
             <>
               <div>
-                <label class="label" for="username">Username</label>
-                <input id="username" class="input" type="text" autocomplete="username" placeholder="your_username" tabindex="1" />
+                <label class="label" for="username">Username or email</label>
+                <input id="username" class="input" type="text" autocomplete="username" placeholder="your_username or you@example.com" tabindex="1" />
               </div>
               <div>
                 <div class="flex items-center justify-between mb-1.5">

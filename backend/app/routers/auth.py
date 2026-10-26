@@ -179,7 +179,12 @@ def register(request: Request, data: UserRegister, response: Response, db: Sessi
 @router.post("/login", response_model=UserOut | TwoFactorRequired)
 @limiter.limit("10/minute")
 def login(request: Request, data: UserLogin, response: Response, db: Session = Depends(get_db)):
+    # The field is still called "username" on the wire, but an email works too.
+    # An exact username match wins, so a username can never be shadowed by
+    # someone else's email.
     user = db.query(User).filter(User.username == data.username).first()
+    if not user and "@" in data.username:
+        user = db.query(User).filter(func.lower(User.email) == data.username.strip().lower()).first()
     if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
