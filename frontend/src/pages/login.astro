@@ -80,14 +80,18 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="label mb-0" for="password">Password</label>
                   {passwordReset.enabled && (
-                    <a href="/forgot-password" tabindex="4" class="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline">
+                    <a href="/forgot-password" tabindex="5" class="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline">
                       Forgot password?
                     </a>
                   )}
                 </div>
                 <PasswordInput id="password" autocomplete="current-password" placeholder="••••••••" tabindex={2} />
               </div>
-              <button id="login-btn" class="btn-primary w-full mt-1" tabindex="3">Sign in</button>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" id="remember" class="toggle" tabindex="3" />
+                Keep me logged in
+              </label>
+              <button id="login-btn" class="btn-primary w-full mt-1" tabindex="4">Sign in</button>
             </>
           )}
         </div>
@@ -109,6 +113,7 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
       if (!btn) return;
       const username = (document.getElementById("username") as HTMLInputElement).value.trim();
       const password = (document.getElementById("password") as HTMLInputElement).value;
+      const remember = (document.getElementById("remember") as HTMLInputElement).checked;
       if (!username || !password) return;
 
       btn.disabled = true;
@@ -119,7 +124,7 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
         const res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ username, password, remember }),
         });
         if (!res.ok) {
           const text = await res.text();

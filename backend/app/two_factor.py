@@ -92,7 +92,7 @@ def recovery_codes(row):
     return ["-".join(code[i:i+4] for i in range(0, 16, 4)) for code in codes]
 
 
-def begin_login(db, user, response):
+def begin_login(db, user, response, remember=False):
     row = locked_state(db, user.id)
     if not row.enabled:
         return False
@@ -100,6 +100,7 @@ def begin_login(db, user, response):
     token = secrets.token_urlsafe(32)
     row.challenge_hash = digest(token)
     row.challenge_expires_at = now() + timedelta(minutes=5)
+    row.challenge_remember = remember
     db.commit()
     response.set_cookie(CHALLENGE_COOKIE, token, httponly=True, secure=settings.cookie_secure,
                         samesite="lax", max_age=300, path="/")

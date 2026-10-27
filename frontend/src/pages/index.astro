@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import DashboardEvent from "../components/DashboardEvent.astro";
 import PersonDetailModal from "../components/PersonDetailModal.astro";
-import { apiJson } from "../lib/api";
+import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
 import { dashboardGroups } from "../lib/dashboard";
 import type { Person } from "../lib/events";
 
@@ -12,6 +12,7 @@ const [meResult, peopleResult] = await Promise.allSettled([
   apiJson<Person[]>("/people?sort=upcoming", { cookies }),
 ]);
 if (meResult.status === "rejected") {
+  if (!isUnauthorized(meResult.reason)) return backendUnavailable();
   Astro.cookies.delete("candlr_token", { path: "/" });
   return Astro.redirect("/login");
 }

@@ -44,6 +44,8 @@ class UserSession(Base):
     jti = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
+    # "Keep me logged in" sessions slide: see POST /auth/refresh.
+    remember = Column(Boolean, nullable=False, default=False, server_default="0")
 
     user = relationship("User", back_populates="sessions")
 
@@ -257,3 +259,5 @@ class TwoFactorAuth(Base):
     locked_until = Column(DateTime, nullable=True)
     challenge_hash = Column(String, unique=True, nullable=True)
     challenge_expires_at = Column(DateTime, nullable=True)
+    # The login that started this challenge asked to stay logged in.
+    challenge_remember = Column(Boolean, nullable=False, default=False, server_default="0")

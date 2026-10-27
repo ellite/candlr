@@ -28,3 +28,17 @@ export async function apiJson<T>(
   }
   return res.json() as Promise<T>;
 }
+
+// Only a 401 from the backend means the session is gone. Anything else (the
+// backend still booting after a restart, a timeout, a 5xx) says nothing about
+// the cookie, so callers must not clear it.
+export function isUnauthorized(reason: unknown): boolean {
+  return (reason as { status?: number } | null)?.status === 401;
+}
+
+export function backendUnavailable(): Response {
+  return new Response("Candlr is starting up. Reload in a few seconds.", {
+    status: 503,
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": "5" },
+  });
+}

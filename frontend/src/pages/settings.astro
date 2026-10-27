@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import TwoFactorSettings from "../components/TwoFactorSettings.astro";
 import PasswordInput from "../components/PasswordInput.astro";
-import { apiJson } from "../lib/api";
+import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
@@ -30,6 +30,7 @@ const [meResult, eventTypesResult, channelsResult, vapidResult, notifyPreference
 ]);
 
 if (meResult.status === "rejected") {
+  if (!isUnauthorized(meResult.reason)) return backendUnavailable();
   Astro.cookies.delete("candlr_token", { path: "/" });
   return Astro.redirect("/login");
 }
@@ -161,7 +162,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <details class="group pb-5 border-b">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" id="email-enabled" onclick="event.stopPropagation()" />
+              <input type="checkbox" class="toggle" id="email-enabled" onclick="event.stopPropagation()" />
               Email
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -181,7 +182,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <details class="group pb-5 border-b">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" id="ntfy-enabled" onclick="event.stopPropagation()" />
+              <input type="checkbox" class="toggle" id="ntfy-enabled" onclick="event.stopPropagation()" />
               ntfy
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -214,7 +215,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <details class="group pb-5 border-b">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" id="discord-enabled" onclick="event.stopPropagation()" />
+              <input type="checkbox" class="toggle" id="discord-enabled" onclick="event.stopPropagation()" />
               Discord
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -237,7 +238,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <details class="group pb-5 border-b">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" id="telegram-enabled" onclick="event.stopPropagation()" />
+              <input type="checkbox" class="toggle" id="telegram-enabled" onclick="event.stopPropagation()" />
               Telegram
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -266,7 +267,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <details class="group pb-5 border-b">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" id="pushover-enabled" onclick="event.stopPropagation()" />
+              <input type="checkbox" class="toggle" id="pushover-enabled" onclick="event.stopPropagation()" />
               Pushover
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -295,7 +296,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <details class="group pb-5 border-b">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" id="gotify-enabled" onclick="event.stopPropagation()" />
+              <input type="checkbox" class="toggle" id="gotify-enabled" onclick="event.stopPropagation()" />
               Gotify
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -499,7 +500,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         Syncing stops. The cards it created stay as ordinary cards unless you choose to delete them.
       </p>
       <label class="flex items-center gap-2 text-sm cursor-pointer mb-4">
-        <input type="checkbox" id="carddav-delete-cards" />
+        <input type="checkbox" class="toggle" id="carddav-delete-cards" />
         Also delete the cards that were synced
       </label>
       <div class="flex gap-2 justify-end">

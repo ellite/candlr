@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { apiJson } from "../lib/api";
+import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
@@ -25,6 +25,7 @@ const [meResult, peopleResult, eventTypesResult] = await Promise.allSettled([
 ]);
 
 if (meResult.status === "rejected") {
+  if (!isUnauthorized(meResult.reason)) return backendUnavailable();
   Astro.cookies.delete("candlr_token", { path: "/" });
   return Astro.redirect("/login");
 }
@@ -126,7 +127,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
         <div id="share-types" class="space-y-1.5 mb-4">
           {eventTypes.map((et) => (
             <label class="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" class="share-type" value={et.id} checked />
+              <input type="checkbox" class="toggle share-type" value={et.id} checked />
               {et.name}
             </label>
           ))}
@@ -136,18 +137,18 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
         </div>
 
         <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
-          <input type="checkbox" id="share-photos" />
+          <input type="checkbox" class="toggle" id="share-photos" />
           Show card photos
         </label>
         <label class="flex items-center gap-2 text-sm cursor-pointer mb-1">
-          <input type="checkbox" id="share-ages" />
+          <input type="checkbox" class="toggle" id="share-ages" />
           Show ages and years
         </label>
         <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
           Shows "Turns 37" style labels. Off keeps birth years out of the link.
         </p>
         <label class="flex items-center gap-2 text-sm cursor-pointer mb-1">
-          <input type="checkbox" id="share-addresses" />
+          <input type="checkbox" class="toggle" id="share-addresses" />
           Show addresses
         </label>
         <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">

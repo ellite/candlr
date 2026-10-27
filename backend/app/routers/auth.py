@@ -19,7 +19,7 @@ from ..schemas import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
 )
-from ..auth import hash_password, verify_password, create_access_token, decode_token
+from ..auth import hash_password, verify_password, create_access_token, decode_token, session_lifetime, sign_token
 from ..dependencies import get_current_user
 from ..config import settings
 from ..notifiers import email as email_notifier
@@ -37,28 +37,27 @@ RESET_TOKEN_MAX_AGE = timedelta(hours=1)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 COOKIE_NAME = "candlr_token"
-COOKIE_MAX_AGE = settings.access_token_expire_minutes * 60
 
 
-def _set_auth_cookie(response: Response, token: str):
+def _set_auth_cookie(response: Response, token: str, remember: bool = False):
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
         secure=settings.cookie_secure,
-        max_age=COOKIE_MAX_AGE,
+        max_age=int(session_lifetime(remember).total_seconds()),
         samesite="lax",
     )
 
 
-def _create_session(db: Session, user: User) -> str:
-    token, jti, expires_at = create_access_token(user.id)
+def _create_session(db: Session, user: User, remember: bool = False) -> str:
+    token, jti, expires_at = create_access_token(user.id, remember)
     # prune expired sessions for this user opportunistically
     db.query(UserSession).filter(
         UserSession.user_id == user.id,
         UserSession.expires_at <= datetime.now(timezone.utc),
     ).delete()
-    db.add(UserSession(jti=jti, user_id=user.id, expires_at=expires_at))
+    db.add(UserSession(jti=jti, user_id=user.id, expires_at=expires_at, remember=remember))
     db.commit()
     return token
 
@@ -188,11 +187,11 @@ def login(request: Request, data: UserLogin, response: Response, db: Session = D
     if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if begin_login(db, user, response):
+    if begin_login(db, user, response, remember=data.remember):
         return TwoFactorRequired()
 
-    token = _create_session(db, user)
-    _set_auth_cookie(response, token)
+    token = _create_session(db, user, data.remember)
+    _set_auth_cookie(response, token, data.remember)
     return user
 
 
@@ -211,6 +210,37 @@ def logout(
             db.commit()
     response.delete_cookie(key=COOKIE_NAME)
     return {"ok": True}
+
+
+# Called by the frontend after a page load or a change, never by the browser
+# directly. Pushes a "Keep me logged in" session out to a full lifetime again,
+# but only once it has aged an hour, so a burst of requests writes once.
+REFRESH_AFTER = timedelta(hours=1)
+
+
+@router.post("/refresh")
+def refresh(
+    response: Response,
+    candlr_token: Optional[str] = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    decoded = decode_token(candlr_token) if candlr_token else None
+    session = db.get(UserSession, decoded[1]) if decoded else None
+    now = datetime.now(timezone.utc)
+    if not session or session.user_id != decoded[0]:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    expires_at = session.expires_at if session.expires_at.tzinfo else session.expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= now:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not session.remember:
+        return {"refreshed": False}
+    new_expiry = now + session_lifetime(True)
+    if new_expiry - expires_at < REFRESH_AFTER:
+        return {"refreshed": False}
+    session.expires_at = new_expiry
+    db.commit()
+    _set_auth_cookie(response, sign_token(session.user_id, session.jti, new_expiry), True)
+    return {"refreshed": True}
 
 
 @router.get("/me", response_model=UserOut)

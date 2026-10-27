@@ -223,6 +223,35 @@ select:not(:disabled) {
            transition-shadow;
   }
 
+  /* An on/off switch drawn over a native checkbox, so the markup and the
+     .checked handling stay the same. Add class="toggle" to the input. */
+  .toggle {
+    @apply relative inline-block w-9 h-5 flex-shrink-0 appearance-none rounded-full
+           bg-zinc-300 dark:bg-zinc-600 transition-colors duration-150 motion-reduce:transition-none
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-white/30
+           disabled:opacity-50;
+  }
+
+  .toggle::after {
+    content: "";
+    @apply absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm
+           transition-transform duration-150 motion-reduce:transition-none;
+  }
+
+  .toggle:checked {
+    @apply bg-zinc-900 dark:bg-white;
+  }
+
+  .toggle:checked::after {
+    @apply translate-x-4;
+  }
+
+  /* Plain CSS: the dark: variant can't target a pseudo-element, it compiles
+     to a selector with :where() after ::after, which never matches. */
+  .dark .toggle:checked::after {
+    background-color: var(--color-zinc-900);
+  }
+
   .label {
     @apply block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5;
   }

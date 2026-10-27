@@ -132,7 +132,9 @@ def verify(request: Request, data: CodeInput, response: Response, candlr_2fa: st
         raise HTTPException(401, "Your sign-in attempt expired. Sign in again.")
     mfa.verify_code(db, row, data.code)
     row.challenge_hash = row.challenge_expires_at = None
+    remember = bool(row.challenge_remember)
+    row.challenge_remember = False
     user = db.get(User, row.user_id)
-    _set_auth_cookie(response, _create_session(db, user))
+    _set_auth_cookie(response, _create_session(db, user, remember), remember)
     response.headers["Cache-Control"] = "no-store"
     return {"ok": True}

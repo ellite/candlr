@@ -20,7 +20,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from app.auth import hash_password
+from app.auth import hash_password, decode_token
 from app.database import Base, get_db
 from app.limiter import limiter
 from app.models import User, UserSession, TwoFactorAuth, PasswordResetToken
@@ -100,6 +100,25 @@ class TwoFactorTests(unittest.TestCase):
         self.challenge()
         self.assertEqual(self.client.post("/auth/2fa/verify", json={"code": self.codes[0]}).status_code, 400)
         self.assertEqual(self.client.post("/auth/2fa/verify", json={"code": self.codes[1]}).status_code, 200)
+
+    def test_remember_choice_survives_the_code_step(self):
+        self.enable()
+        for remember in (True, False):
+            self.client.cookies.clear()
+            response = self.client.post(
+                "/auth/login", json={"username": "test", "password": "password123", "remember": remember}
+            )
+            self.assertEqual(response.json(), {"requires_2fa": True})
+            code = self.codes.pop()
+            response = self.client.post("/auth/2fa/verify", json={"code": code})
+            self.assertEqual(response.status_code, 200)
+            cookie = next(c for c in response.headers.get_list("set-cookie") if c.startswith("candlr_token="))
+            expected = settings.remember_me_days * 86400 if remember else settings.access_token_expire_minutes * 60
+            self.assertIn(f"Max-Age={expected}", cookie)
+            with self.sessions() as db:
+                jti = decode_token(cookie.split(";")[0].split("=", 1)[1])[1]
+                self.assertEqual(db.get(UserSession, jti).remember, remember)
+                self.assertFalse(db.get(TwoFactorAuth, 1).challenge_remember)
 
     def test_totp_replay_and_successful_next_step(self):
         self.enable()

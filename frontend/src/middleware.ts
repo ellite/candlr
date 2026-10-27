@@ -1,4 +1,7 @@
+import type { APIContext } from "astro";
 import { defineMiddleware } from "astro:middleware";
+import { apiFetch } from "./lib/api";
+import { applySetCookies } from "./lib/cookies";
 
 const PUBLIC_PAGES = [
   "/login",
@@ -59,6 +62,24 @@ function withHeaders(response: Response, pathname: string): Response {
   return response;
 }
 
+// "Keep me logged in" sessions slide: each page load or change pushes the
+// expiry out again. Only pages and writes count, so a grid of photo requests
+// doesn't each cost a round trip. The backend decides whether the session
+// needs it and answers with a fresh cookie only then; a failure here must
+// never get in the way of the request itself.
+async function slideSession(context: APIContext): Promise<void> {
+  const { pathname } = context.url;
+  const isRead = context.request.method === "GET" || context.request.method === "HEAD";
+  if (pathname.startsWith("/api/") && isRead) return;
+  try {
+    const res = await apiFetch("/auth/refresh", {
+      method: "POST",
+      cookies: context.request.headers.get("cookie") ?? "",
+    });
+    if (res.ok) applySetCookies(context.cookies, res.headers);
+  } catch {}
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
@@ -75,5 +96,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect("/login");
   }
 
-  return withHeaders(await next(), pathname);
+  const response = await next();
+  await slideSession(context);
+  return withHeaders(response, pathname);
 });

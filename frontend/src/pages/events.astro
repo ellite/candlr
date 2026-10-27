@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import PersonDetailModal from "../components/PersonDetailModal.astro";
-import { apiJson } from "../lib/api";
+import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
@@ -18,6 +18,7 @@ const [meResult, eventTypesResult, peopleResult] = await Promise.allSettled([
 ]);
 
 if (meResult.status === "rejected") {
+  if (!isUnauthorized(meResult.reason)) return backendUnavailable();
   Astro.cookies.delete("candlr_token", { path: "/" });
   return Astro.redirect("/login");
 }
@@ -190,7 +191,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           </div>
           <input id="form-year" class="input" type="number" placeholder="Year" min="1" max="2100" />
           <label class="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300 mt-2 cursor-pointer">
-            <input type="checkbox" id="form-year-unknown" />
+            <input type="checkbox" class="toggle" id="form-year-unknown" />
             I don't know (or don't want to enter) the year
           </label>
           <p id="form-cadence-hint" class="hidden text-xs text-zinc-600 dark:text-zinc-300 mt-2"></p>
@@ -202,7 +203,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         </div>
 
         <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
-          <input type="checkbox" id="form-notify" checked />
+          <input type="checkbox" class="toggle" id="form-notify" checked />
           Notify me about this date
         </label>
 

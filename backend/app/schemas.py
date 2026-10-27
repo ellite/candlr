@@ -16,6 +16,7 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+    remember: bool = False
 
 
 class TwoFactorRequired(BaseModel):

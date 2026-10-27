@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    # Lifetime of a "Keep me logged in" session. Each use of the app pushes
+    # it out again, so it only lapses after this long without activity.
+    remember_me_days: int = 30
     cookie_secure: bool = False  # set True when serving over HTTPS
     docs_enabled: bool = False
     # Used to build absolute links in outgoing emails (e.g. the password

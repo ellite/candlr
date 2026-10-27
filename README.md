@@ -161,6 +161,7 @@ Database migrations run automatically on startup - no manual steps required.
 | `SECRET_KEY` | - | **Required.** JWT signing and 2FA secret encryption key. Keep stable and backed up. Generate with `openssl rand -hex 32`. |
 | `PUID` | `1000` | User ID to run the process as. |
 | `PGID` | `1000` | Group ID to run the process as. |
+| `REMEMBER_ME_DAYS` | `30` | How long a "Keep me logged in" session lasts. It is pushed out again each time you use the app, so it only ends after this many days without activity. |
 | `COOKIE_SECURE` | `false` | Set to `true` when serving over HTTPS, so the auth cookie is marked secure. |
 | `DOCS_ENABLED` | `false` | Set to `true` to expose `/docs` and `/redoc` on the backend. |
 | `ENABLE_REGISTRATIONS` | `false` | The very first account can always be created; this gates every account after that. |

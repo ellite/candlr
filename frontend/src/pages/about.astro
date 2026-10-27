@@ -1,11 +1,16 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { apiJson } from "../lib/api";
+import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
-const meResult = await apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }).catch(() => null);
+let meFailure: unknown = null;
+const meResult = await apiJson<{ username: string; is_admin: boolean }>("/auth/me", { cookies }).catch((e) => {
+  meFailure = e;
+  return null;
+});
 if (!meResult) {
+  if (!isUnauthorized(meFailure)) return backendUnavailable();
   Astro.cookies.delete("candlr_token", { path: "/" });
   return Astro.redirect("/login");
 }
