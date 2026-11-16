@@ -8,6 +8,9 @@ from ..models import NotificationChannel, PushSubscription
 from .errors import NotifierError
 
 
+PUSH_TTL_SECONDS = 24 * 60 * 60
+
+
 def send(db: Session, user_id: int, title: str, body: str, *, url: str | None = None) -> None:
     if not settings.vapid_private_key or not settings.vapid_public_key:
         raise NotifierError("Web push is not configured on this instance")
@@ -31,6 +34,11 @@ def send(db: Session, user_id: int, title: str, body: str, *, url: str | None = 
                 subscription_info=subscription_info,
                 data=payload,
                 timeout=10,
+                # pywebpush defaults to ttl=0, which makes the push service drop
+                # the message if the device is asleep or offline at that instant.
+                # Keep it queued for a day so a reminder still arrives later.
+                ttl=PUSH_TTL_SECONDS,
+                headers={"Urgency": "high"},
                 vapid_private_key=settings.vapid_private_key,
                 vapid_claims={"sub": settings.vapid_subject},
             )
