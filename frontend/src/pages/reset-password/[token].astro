@@ -1,6 +1,8 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import ThemeToggle from "../../components/ThemeToggle.astro";
+import LanguageSwitcher from "../../components/LanguageSwitcher.astro";
+import * as m from "../../paraglide/messages.js";
 import Logo from "../../components/Logo.astro";
 import AuthHero from "../../components/AuthHero.astro";
 import PasswordInput from "../../components/PasswordInput.astro";
@@ -12,12 +14,13 @@ if (Astro.cookies.get("candlr_token")?.value) {
 const { token } = Astro.params;
 ---
 
-<Layout title="Reset password">
+<Layout title={m.auth_reset_password()}>
   <div class="min-h-dvh grid md:grid-cols-2">
     <AuthHero />
 
     <div class="relative flex items-center justify-center px-4 py-16">
-      <div class="fixed top-4 right-4 z-20">
+      <div class="fixed top-4 right-4 z-20 flex items-center gap-2">
+        <LanguageSwitcher class="input !w-auto !py-1.5 text-sm" />
         <ThemeToggle class="p-2 rounded-lg bg-surface dark:bg-surface-dark border" />
       </div>
 
@@ -26,31 +29,36 @@ const { token } = Astro.params;
           <div class="md:hidden mb-4">
             <Logo size="md" />
           </div>
-          <h1 class="text-lg font-semibold tracking-tight">Choose a new password</h1>
+          <h1 class="text-lg font-semibold tracking-tight">{m.auth_choose_new_password()}</h1>
         </div>
 
         <div class="card p-6 space-y-4" id="form-card">
           <div id="error-msg" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg"></div>
           <div>
-            <label class="label" for="new-password">New password</label>
+            <label class="label" for="new-password">{m.auth_new_password()}</label>
             <PasswordInput id="new-password" autocomplete="new-password" placeholder="••••••••" />
           </div>
           <div>
-            <label class="label" for="confirm-password">Confirm new password</label>
+            <label class="label" for="confirm-password">{m.auth_confirm_new_password()}</label>
             <PasswordInput id="confirm-password" autocomplete="new-password" placeholder="••••••••" />
           </div>
-          <button id="submit-btn" class="btn-primary w-full mt-1">Reset password</button>
+          <button id="submit-btn" class="btn-primary w-full mt-1">{m.auth_reset_password()}</button>
         </div>
 
         <div class="card p-6 hidden" id="success-card">
-          <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Your password has been updated.</p>
-          <a href="/login" class="btn-primary inline-block">Sign in</a>
+          <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{m.auth_password_updated()}</p>
+          <a href="/login" class="btn-primary inline-block">{m.auth_sign_in()}</a>
         </div>
       </div>
     </div>
   </div>
 
-  <script define:vars={{ token }}>
+  <script define:vars={{ token, t: {
+    mismatch: m.auth_passwords_mismatch(),
+    resetting: m.auth_resetting(),
+    failed: m.auth_reset_failed(),
+    reset: m.auth_reset_password(),
+  } }}>
     const btn = document.getElementById("submit-btn");
     const errEl = document.getElementById("error-msg");
     const formCard = document.getElementById("form-card");
@@ -63,13 +71,13 @@ const { token } = Astro.params;
       errEl.classList.add("hidden");
       if (!newPassword || !confirmPassword) return;
       if (newPassword !== confirmPassword) {
-        errEl.textContent = "Passwords do not match";
+        errEl.textContent = t.mismatch;
         errEl.classList.remove("hidden");
         return;
       }
 
       btn.disabled = true;
-      btn.textContent = "Resetting…";
+      btn.textContent = t.resetting;
 
       try {
         const res = await fetch(`/api/auth/reset-password/${encodeURIComponent(token)}`, {
@@ -79,7 +87,7 @@ const { token } = Astro.params;
         });
         if (!res.ok) {
           const text = await res.text();
-          let detail = "Could not reset password";
+          let detail = t.failed;
           try { detail = JSON.parse(text).detail ?? detail; } catch {}
           throw new Error(detail);
         }
@@ -89,7 +97,7 @@ const { token } = Astro.params;
         errEl.textContent = e.message;
         errEl.classList.remove("hidden");
         btn.disabled = false;
-        btn.textContent = "Reset password";
+        btn.textContent = t.reset;
       }
     }
 

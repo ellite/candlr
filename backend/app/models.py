@@ -22,6 +22,9 @@ class User(Base):
     # Secret in the URL of the account's subscribable .ics feed. Null means
     # the feed is off; regenerating it revokes every existing subscription.
     calendar_token = Column(String, unique=True, index=True, nullable=True)
+    # UI language (a locale code the frontend ships messages for, e.g. "en",
+    # "pt-PT"). Follows the account across devices.
+    language = Column(String(10), nullable=False, default="en", server_default="en")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     two_factor = relationship("TwoFactorAuth", uselist=False, cascade="all, delete-orphan")

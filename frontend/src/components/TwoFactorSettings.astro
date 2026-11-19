@@ -1,54 +1,57 @@
 ---
 import PasswordInput from "./PasswordInput.astro";
+import * as m from "../paraglide/messages.js";
 interface Props { hasPassword: boolean }
 const { hasPassword } = Astro.props;
 ---
 <section class="card p-6" id="two-factor-settings">
-  <h2 class="text-sm font-medium mb-1">Two-factor authentication</h2>
+  <h2 class="text-sm font-medium mb-1">{m.twofactor_title()}</h2>
   {hasPassword ? (
     <>
-      <p id="mfa-status" class="text-sm text-zinc-600 dark:text-zinc-300 mb-4" aria-live="polite">Loading security settings…</p>
+      <p id="mfa-status" class="text-sm text-zinc-600 dark:text-zinc-300 mb-4" aria-live="polite">{m.twofactor_loading()}</p>
       <p id="mfa-error" role="alert" class="hidden text-sm text-red-600 dark:text-red-400 mb-4"></p>
       <form id="mfa-form" class="hidden space-y-4 max-w-sm">
         <div>
-          <label class="label" for="mfa-password">Current password</label>
+          <label class="label" for="mfa-password">{m.twofactor_current_password()}</label>
           <PasswordInput id="mfa-password" autocomplete="current-password" required />
         </div>
         <div id="mfa-code-field" class="hidden">
-          <label class="label" for="mfa-code">Authenticator or recovery code</label>
+          <label class="label" for="mfa-code">{m.twofactor_code_label()}</label>
           <input class="input" id="mfa-code" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" maxlength="64" />
         </div>
         <div class="flex flex-wrap gap-2">
-          <button id="mfa-setup" type="submit" class="btn-secondary">Set up 2FA</button>
-          <button id="mfa-disable" type="button" class="btn-secondary hidden">Turn off 2FA</button>
-          <button id="mfa-regenerate" type="button" class="btn-secondary hidden">Replace recovery codes</button>
+          <button id="mfa-setup" type="submit" class="btn-secondary">{m.twofactor_setup()}</button>
+          <button id="mfa-disable" type="button" class="btn-secondary hidden">{m.twofactor_disable()}</button>
+          <button id="mfa-regenerate" type="button" class="btn-secondary hidden">{m.twofactor_regenerate()}</button>
         </div>
       </form>
       <form id="mfa-enroll" class="hidden mt-4 space-y-4 max-w-sm">
-        <p class="text-sm">Scan this QR code with your authenticator app, then enter its code to finish setup. Setup expires in 10 minutes.</p>
-        <img id="mfa-qr" alt="Scan this QR code with your authenticator app" width="240" height="240" class="rounded-lg" />
-        <details class="text-sm"><summary class="cursor-pointer">Enter the key manually instead</summary><code id="mfa-secret" class="block break-all mt-2 select-all"></code></details>
+        <p class="text-sm">{m.twofactor_scan_instructions()}</p>
+        <img id="mfa-qr" alt={m.twofactor_qr_alt()} width="240" height="240" class="rounded-lg" />
+        <details class="text-sm"><summary class="cursor-pointer">{m.twofactor_manual_key()}</summary><code id="mfa-secret" class="block break-all mt-2 select-all"></code></details>
         <div>
-          <label class="label" for="mfa-enroll-code">Six-digit code</label>
+          <label class="label" for="mfa-enroll-code">{m.twofactor_six_digit()}</label>
           <input id="mfa-enroll-code" class="input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
         </div>
-        <button type="submit" class="btn-primary">Enable 2FA</button>
-        <button id="mfa-cancel" type="button" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">{m.twofactor_enable()}</button>
+        <button id="mfa-cancel" type="button" class="btn-secondary">{m.twofactor_cancel()}</button>
       </form>
       <div id="mfa-recovery" class="hidden mt-4 space-y-3">
-        <p class="text-sm font-medium">Save your recovery codes</p>
-        <p class="text-sm text-zinc-600 dark:text-zinc-300">Each code can be used once if you lose access to your authenticator. These codes are only shown now. Store them somewhere safe.</p>
+        <p class="text-sm font-medium">{m.twofactor_save_codes_title()}</p>
+        <p class="text-sm text-zinc-600 dark:text-zinc-300">{m.twofactor_save_codes_description()}</p>
         <pre id="mfa-recovery-list" class="text-sm whitespace-pre-wrap select-all"></pre>
-        <button id="mfa-download" type="button" class="btn-secondary">Download codes</button>
-        <button id="mfa-done" type="button" class="btn-primary">I saved my codes</button>
+        <button id="mfa-download" type="button" class="btn-secondary">{m.twofactor_download()}</button>
+        <button id="mfa-done" type="button" class="btn-primary">{m.twofactor_done()}</button>
       </div>
     </>
   ) : (
-    <p class="text-sm text-zinc-600 dark:text-zinc-300">You sign in through SSO. Manage two-factor authentication in your identity provider's account settings.</p>
+    <p class="text-sm text-zinc-600 dark:text-zinc-300">{m.twofactor_sso()}</p>
   )}
 </section>
 
 <script>
+  import * as m from "../paraglide/messages.js";
+
   const status = document.getElementById("mfa-status");
   if (status) {
     const el = (id: string) => document.getElementById(id)!;
@@ -62,13 +65,13 @@ const { hasPassword } = Astro.props;
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       } : { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not update two-factor authentication");
+      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : m.twofactor_update_failed());
       return data;
     }
     async function refresh() {
       const data = await api();
       enabled = data.enabled;
-      status!.textContent = enabled ? `Enabled. ${data.recovery_codes_remaining} recovery codes remaining.` : "Add an authenticator code to protect your sign-in.";
+      status!.textContent = enabled ? m.twofactor_enabled_remaining({ count: data.recovery_codes_remaining }) : m.twofactor_not_enabled();
       show("mfa-form", true);
       show("mfa-code-field", enabled);
       show("mfa-setup", !enabled);
@@ -82,7 +85,7 @@ const { hasPassword } = Astro.props;
       el("two-factor-settings").querySelectorAll("button").forEach(button => button.disabled = true);
       try { await callback(); }
       catch (err) {
-        el("mfa-error").textContent = err instanceof Error ? err.message : "Something went wrong";
+        el("mfa-error").textContent = err instanceof Error ? err.message : m.twofactor_something_went_wrong();
         show("mfa-error", true);
       } finally {
         busy = false;
@@ -95,7 +98,7 @@ const { hasPassword } = Astro.props;
       show("mfa-recovery", true);
       show("mfa-form", false);
       input("mfa-password").value = input("mfa-code").value = "";
-      status!.textContent = "Two-factor authentication is enabled.";
+      status!.textContent = m.twofactor_enabled();
     }
     function clearSetup() {
       (el("mfa-qr") as HTMLImageElement).removeAttribute("src");
@@ -132,7 +135,7 @@ const { hasPassword } = Astro.props;
       }));
     }
     el("mfa-download").addEventListener("click", () => {
-      const url = URL.createObjectURL(new Blob(["Candlr recovery codes (each code works once)\n\n" + codes.join("\n")], { type: "text/plain" }));
+      const url = URL.createObjectURL(new Blob([m.twofactor_download_header() + "\n\n" + codes.join("\n")], { type: "text/plain" }));
       const link = document.createElement("a"); link.href = url; link.download = "candlr-recovery-codes.txt"; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });

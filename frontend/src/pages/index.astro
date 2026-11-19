@@ -1,4 +1,5 @@
 ---
+import * as m from "../paraglide/messages.js";
 import Layout from "../layouts/Layout.astro";
 import DashboardEvent from "../components/DashboardEvent.astro";
 import PersonDetailModal from "../components/PersonDetailModal.astro";
@@ -23,54 +24,54 @@ if (Astro.url.searchParams.has("open")) {
 const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 const { today, lastWeek, thisWeek, later, nextUp } = dashboardGroups(people);
 const upcomingGroups = [
-  { title: "Next 7 days", entries: thisWeek },
-  { title: "Later", entries: later },
+  { title: m.dashboard_next_7_days(), entries: thisWeek },
+  { title: m.dashboard_later(), entries: later },
 ].filter(({ entries }) => entries.length);
 ---
 
-<Layout title="Dashboard" user={{ username: meResult.value.username, is_admin: meResult.value.is_admin }} activePage="dashboard">
+<Layout title={m.nav_dashboard()} user={{ username: meResult.value.username, is_admin: meResult.value.is_admin }} activePage="dashboard">
   <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
     <div class="flex items-center justify-between gap-4">
-      <h1 class="text-lg font-semibold tracking-tight">At a glance</h1>
-      <a href="/events?add=1" class="btn-primary flex-shrink-0">+ Add</a>
+      <h1 class="text-lg font-semibold tracking-tight">{m.dashboard_at_a_glance()}</h1>
+      <a href="/events?add=1" class="btn-primary flex-shrink-0">{m.common_add()}</a>
     </div>
 
     {peopleResult.status === "rejected" ? (
       <div class="card p-6 text-sm" role="alert">
-        <p>Could not load your events.</p>
-        <a href="/" class="inline-block mt-3 underline">Try again</a>
+        <p>{m.dashboard_load_error()}</p>
+        <a href="/" class="inline-block mt-3 underline">{m.common_try_again()}</a>
       </div>
     ) : (
       <>
         <section aria-labelledby="today-heading">
-          <h2 id="today-heading" class="text-base font-semibold mb-3">Today</h2>
+          <h2 id="today-heading" class="text-base font-semibold mb-3">{m.dashboard_today()}</h2>
           {today.length ? (
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {today.map((entry) => <DashboardEvent entry={entry} prominent />)}
             </div>
           ) : (
-            <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">No events today.</div>
+            <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">{m.dashboard_no_events_today()}</div>
           )}
         </section>
 
         <section aria-labelledby="last-week-heading">
-          <h2 id="last-week-heading" class="text-base font-semibold mb-3">Last 7 days</h2>
+          <h2 id="last-week-heading" class="text-base font-semibold mb-3">{m.dashboard_last_7_days()}</h2>
           {lastWeek.length ? (
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {lastWeek.map((entry) => <DashboardEvent entry={entry} past />)}
             </div>
           ) : (
-            <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">No events in the last 7 days.</div>
+            <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">{m.dashboard_no_events_last_7_days()}</div>
           )}
         </section>
 
         <section aria-labelledby="upcoming-heading">
           <div class="flex items-baseline justify-between gap-3 mb-4">
             <div>
-              <h2 id="upcoming-heading" class="text-base font-semibold">Upcoming</h2>
-              <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-1">Over the next 30 days</p>
+              <h2 id="upcoming-heading" class="text-base font-semibold">{m.dashboard_upcoming()}</h2>
+              <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-1">{m.dashboard_next_30_days()}</p>
             </div>
-            <a href="/events" class="text-xs text-zinc-600 dark:text-zinc-300 hover:underline flex-shrink-0">View all events</a>
+            <a href="/events" class="text-xs text-zinc-600 dark:text-zinc-300 hover:underline flex-shrink-0">{m.dashboard_view_all()}</a>
           </div>
           {upcomingGroups.length ? (
             <div class="space-y-5">
@@ -85,10 +86,10 @@ const upcomingGroups = [
             </div>
           ) : (
             <div class="card p-5 text-sm text-zinc-600 dark:text-zinc-300">
-              {people.length ? "No events in the next 30 days." : (
+              {people.length ? m.dashboard_no_events_next_30_days() : (
                 <>
-                  <p>No dates yet. Add the first one to get started.</p>
-                  <a href="/events?add=1" class="btn-primary inline-block mt-4">+ Add</a>
+                  <p>{m.dashboard_no_dates_yet()}</p>
+                  <a href="/events?add=1" class="btn-primary inline-block mt-4">{m.common_add()}</a>
                 </>
               )}
             </div>
@@ -97,7 +98,7 @@ const upcomingGroups = [
 
         {nextUp.length > 0 && (
           <section aria-labelledby="next-heading">
-            <h2 id="next-heading" class="text-base font-semibold mb-3">Next up</h2>
+            <h2 id="next-heading" class="text-base font-semibold mb-3">{m.dashboard_next_up()}</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {nextUp.map((entry) => <DashboardEvent entry={entry} />)}
             </div>

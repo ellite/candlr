@@ -2,14 +2,37 @@
 // calendar. Both read event.days_until, which the API always computes
 // server-side (next occurrence from today), so age math never needs to know
 // what "today" is on its own.
-export const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+import * as m from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
+
+// Localized full month name (month is 1-12).
+export function monthName(month) {
+  return new Intl.DateTimeFormat(getLocale(), { month: "long" }).format(new Date(2000, month - 1, 1));
+}
+
+// Array-like view over monthName() so existing MONTH_NAMES[i] callers keep
+// working while evaluating lazily in the current locale.
+export const MONTH_NAMES = new Proxy([], {
+  get: (target, key) => (typeof key === "string" && /^\d+$/.test(key) ? monthName(Number(key) + 1) : target[key]),
+});
+
+// "March 5" / "March 5, 2024" in the current locale.
+export function monthDay(month, day) {
+  return new Intl.DateTimeFormat(getLocale(), { month: "long", day: "numeric" }).format(new Date(2000, month - 1, day));
+}
 
 export function formatDate(event) {
-  const m = MONTH_NAMES[event.month - 1];
-  return event.year_known && event.year ? `${m} ${event.day}, ${event.year}` : `${m} ${event.day}`;
+  if (!(event.year_known && event.year)) return monthDay(event.month, event.day);
+  const date = new Date(2000, event.month - 1, event.day);
+  date.setFullYear(event.year);
+  return new Intl.DateTimeFormat(getLocale(), { year: "numeric", month: "long", day: "numeric" }).format(date);
+}
+
+// "3 days", "1 year": a count of the given unit (day/week/month/year).
+export function unitCount(count, unit) {
+  const one = count === 1;
+  const key = `dates_count_${unit}_${one ? "one" : "other"}`;
+  return m[key]({ count });
 }
 
 // Wraps the digits in an age/milestone string (e.g. "Turns 36") in a bold,
@@ -38,9 +61,9 @@ export function splitNumber(text) {
 }
 
 export function dueLabel(daysUntil) {
-  if (daysUntil === 0) return "Today";
-  if (daysUntil === 1) return "Tomorrow";
-  return `In ${daysUntil} days`;
+  if (daysUntil === 0) return m.dates_today();
+  if (daysUntil === 1) return m.dates_tomorrow();
+  return m.dates_in_days({ days: daysUntil });
 }
 
 // ── Cadence ──
@@ -58,7 +81,9 @@ export function needsStartYear(type) {
 }
 
 export function cadenceLabel(type) {
-  return type.interval === 1 ? `every ${type.unit}` : `every ${type.interval} ${type.unit}s`;
+  return type.interval === 1
+    ? m[`dates_every_${type.unit}`]()
+    : m[`dates_every_n_${type.unit}s`]({ interval: type.interval });
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,7 +117,7 @@ export function elapsedUnits(event, date) {
 function countLabel(event, date) {
   if (!event.year_known || !event.year) return "";
   const count = elapsedUnits(event, date);
-  return count > 0 ? `${count} ${event.event_type.unit}${count === 1 ? "" : "s"}` : "";
+  return count > 0 ? unitCount(count, event.event_type.unit) : "";
 }
 
 // Whether the event lands on this calendar day (month is 1-12). Used to
@@ -135,7 +160,7 @@ export function ageLabel(event, standalone = false) {
   // Age turned = the calendar year of the next occurrence, minus the birth year.
   const turns = nextOccurrence.getFullYear() - event.year;
   if (turns < 0) return "";
-  return standalone ? `Turns ${turns}` : ` · turns ${turns}`;
+  return standalone ? m.dates_turns({ years: turns }) : ` · ${m.dates_turns_lower({ years: turns })}`;
 }
 
 // Like ageLabel, but for a specific occurrence date (e.g. a day the user
@@ -152,5 +177,5 @@ export function ageLabelForOccurrence(event, occurrence, today = new Date()) {
   const turns = occurrenceYear - event.year;
   const occurrenceDate = new Date(occurrenceYear, event.month - 1, event.day);
   const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return occurrenceDate < todayDate ? `Turned ${turns}` : `Turns ${turns}`;
+  return occurrenceDate < todayDate ? m.dates_turned({ years: turns }) : m.dates_turns({ years: turns });
 }

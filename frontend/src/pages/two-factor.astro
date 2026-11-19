@@ -1,16 +1,19 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import ThemeToggle from "../components/ThemeToggle.astro";
+import LanguageSwitcher from "../components/LanguageSwitcher.astro";
+import * as m from "../paraglide/messages.js";
 import Logo from "../components/Logo.astro";
 import AuthHero from "../components/AuthHero.astro";
 ---
 
-<Layout title="Two-factor authentication">
+<Layout title={m.auth_title_two_factor()}>
   <div class="min-h-dvh grid md:grid-cols-2">
     <AuthHero />
 
     <div class="relative flex items-center justify-center px-4 py-16">
-      <div class="fixed top-4 right-4 z-20">
+      <div class="fixed top-4 right-4 z-20 flex items-center gap-2">
+        <LanguageSwitcher class="input !w-auto !py-1.5 text-sm" />
         <ThemeToggle class="p-2 rounded-lg bg-surface dark:bg-surface-dark border" />
       </div>
 
@@ -19,28 +22,30 @@ import AuthHero from "../components/AuthHero.astro";
           <div class="md:hidden mb-4">
             <Logo size="md" />
           </div>
-          <h1 class="text-lg font-semibold tracking-tight">Verify your sign-in</h1>
-          <p class="text-zinc-600 dark:text-zinc-300 mt-1 text-sm">Enter the six-digit code from your authenticator app, or use one of your recovery codes.</p>
+          <h1 class="text-lg font-semibold tracking-tight">{m.auth_2fa_heading()}</h1>
+          <p class="text-zinc-600 dark:text-zinc-300 mt-1 text-sm">{m.auth_2fa_intro()}</p>
         </div>
 
         <div class="card p-6 space-y-4">
           <div id="verify-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg"></div>
 
           <div>
-            <label class="label" for="verification-code">Authenticator or recovery code</label>
+            <label class="label" for="verification-code">{m.auth_2fa_code_label()}</label>
             <input id="verification-code" class="input" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" required maxlength="64" autofocus tabindex="1" />
           </div>
-          <button id="verify-btn" class="btn-primary w-full mt-1" tabindex="2">Verify</button>
+          <button id="verify-btn" class="btn-primary w-full mt-1" tabindex="2">{m.auth_verify()}</button>
         </div>
 
         <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-4">
-          <a href="/login" class="text-zinc-900 dark:text-zinc-100 font-medium hover:underline">Back to sign in</a>
+          <a href="/login" class="text-zinc-900 dark:text-zinc-100 font-medium hover:underline">{m.auth_back_to_sign_in()}</a>
         </p>
       </div>
     </div>
   </div>
 
   <script>
+    import * as m from "../paraglide/messages.js";
+
     const btn = document.getElementById("verify-btn") as HTMLButtonElement;
     const errEl = document.getElementById("verify-error")!;
     const codeInput = document.getElementById("verification-code") as HTMLInputElement;
@@ -50,7 +55,7 @@ import AuthHero from "../components/AuthHero.astro";
       if (!code) return;
 
       btn.disabled = true;
-      btn.textContent = "Verifying…";
+      btn.textContent = m.auth_verifying();
       errEl.classList.add("hidden");
 
       try {
@@ -60,14 +65,25 @@ import AuthHero from "../components/AuthHero.astro";
           body: JSON.stringify({ code }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not verify this code");
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : m.auth_2fa_failed());
+        // Apply the account language right away (the verify response has no user, so look it up).
+        try {
+          let language = data.language;
+          if (!language) {
+            const me = await fetch("/api/auth/me");
+            if (me.ok) language = (await me.json()).language;
+          }
+          if (language) {
+            document.cookie = "candlr_language=" + language + "; path=/; max-age=34560000; samesite=lax";
+          }
+        } catch {}
         const next = new URL(new URLSearchParams(location.search).get("next") || "/", location.origin);
         location.href = next.origin === location.origin ? next.href : "/";
       } catch (e: any) {
         errEl.textContent = e.message;
         errEl.classList.remove("hidden");
         btn.disabled = false;
-        btn.textContent = "Verify";
+        btn.textContent = m.auth_verify();
       }
     }
 

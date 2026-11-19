@@ -2,7 +2,9 @@
 import Layout from "../layouts/Layout.astro";
 import TwoFactorSettings from "../components/TwoFactorSettings.astro";
 import PasswordInput from "../components/PasswordInput.astro";
+import LanguageSwitcher from "../components/LanguageSwitcher.astro";
 import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
+import * as m from "../paraglide/messages.js";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
@@ -39,35 +41,48 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
 const carddav = carddavResult.status === "fulfilled" ? carddavResult.value : null;
 const channels = channelsResult.status === "fulfilled" ? channelsResult.value : [];
 const vapidPublicKey = vapidResult.status === "fulfilled" ? vapidResult.value.public_key : null;
+const cadenceLabel = (interval: number, unit: string) => {
+  const one: Record<string, () => string> = { day: m.settings_every_day, week: m.settings_every_week, month: m.settings_every_month, year: m.settings_every_year };
+  const many: Record<string, (p: { count: number }) => string> = { day: m.settings_every_n_days, week: m.settings_every_n_weeks, month: m.settings_every_n_months, year: m.settings_every_n_years };
+  return interval === 1 ? one[unit]() : many[unit]({ count: interval });
+};
 const jsonExample = '{"people": [{"name": "Alex", "events": [{"type": "Birthday", "month": 3, "day": 5, "year": 1990}]}]}';
 const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPreferencesResult.value.notify_time : "09:00";
 ---
 
-<Layout title="Settings" user={{ username: user.username, is_admin: user.is_admin }} activePage="settings">
+<Layout title={m.settings_title()} user={{ username: user.username, is_admin: user.is_admin }} activePage="settings">
   <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
     <div>
-      <h1 class="text-lg font-semibold tracking-tight">Settings</h1>
-      <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">Manage your account.</p>
+      <h1 class="text-lg font-semibold tracking-tight">{m.settings_title()}</h1>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{m.settings_subtitle()}</p>
     </div>
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-4">Account</h2>
+      <h2 class="text-sm font-medium mb-4">{m.settings_account_title()}</h2>
       <dl class="space-y-3 text-sm">
         <div class="flex items-center justify-between gap-4">
-          <dt class="text-zinc-600 dark:text-zinc-300">Username</dt>
+          <dt class="text-zinc-600 dark:text-zinc-300">{m.settings_username()}</dt>
           <dd class="font-medium">{user.username}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
-          <dt class="text-zinc-600 dark:text-zinc-300">Email</dt>
+          <dt class="text-zinc-600 dark:text-zinc-300">{m.settings_email()}</dt>
           <dd class="font-medium">{user.email}</dd>
         </div>
       </dl>
     </section>
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Events</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_language_title()}</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">{m.settings_language_description()}</p>
+      <div class="max-w-xs">
+        <LanguageSwitcher persist />
+      </div>
+    </section>
+
+    <section class="card p-6">
+      <h2 class="text-sm font-medium mb-1">{m.settings_events_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        The kinds of dates you can track, and how often each comes around. Birthday and Anniversary are built in, repeat every year, and cannot be deleted. Add your own, repeating as often as you like: every year, every month, every 37 days, every 5 years.
+        {m.settings_events_description()}
       </p>
 
       <ul id="event-type-list" class="space-y-1.5 mb-4">
@@ -77,7 +92,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
               type="button"
               class="icon-button text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1"
               data-drag-handle
-              aria-label="Drag to reorder"
+              aria-label={m.settings_drag_to_reorder()}
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <circle cx="9" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" />
@@ -87,15 +102,15 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
             <span class="text-sm flex-1 truncate">{et.name}</span>
             {!(et.interval === 1 && et.unit === "year") && (
               <span class="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                {et.interval === 1 ? `every ${et.unit}` : `every ${et.interval} ${et.unit}s`}
+                {cadenceLabel(et.interval, et.unit)}
               </span>
             )}
             {!et.is_default && <button
               class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1"
               data-delete-event-type={et.id}
               data-name={et.name}
-              title="Delete"
-              aria-label={`Delete ${et.name}`}
+              title={m.settings_delete()}
+              aria-label={m.settings_delete_named({ name: et.name })}
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -106,54 +121,52 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       </ul>
 
       <div id="event-type-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
-      <button id="open-add-event-type-btn" type="button" class="btn-secondary">Add event type</button>
+      <button id="open-add-event-type-btn" type="button" class="btn-secondary">{m.settings_add_event_type()}</button>
     </section>
 
     <TwoFactorSettings hasPassword={user.has_password} />
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Password</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_password_title()}</h2>
       {user.has_password ? (
         <>
-          <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">Change the password you use to sign in.</p>
+          <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">{m.settings_password_description()}</p>
           <div id="password-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
           <div id="password-success" class="hidden bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
           <div class="space-y-4 max-w-sm">
             <div>
-              <label class="label" for="current-password">Current password</label>
+              <label class="label" for="current-password">{m.settings_current_password()}</label>
               <PasswordInput id="current-password" autocomplete="current-password" />
             </div>
             <div>
-              <label class="label" for="new-password">New password</label>
+              <label class="label" for="new-password">{m.settings_new_password()}</label>
               <PasswordInput id="new-password" autocomplete="new-password" />
             </div>
             <div>
-              <label class="label" for="confirm-new-password">Confirm new password</label>
+              <label class="label" for="confirm-new-password">{m.settings_confirm_new_password()}</label>
               <PasswordInput id="confirm-new-password" autocomplete="new-password" />
             </div>
-            <button id="password-btn" class="btn-secondary">Update password</button>
+            <button id="password-btn" class="btn-secondary">{m.settings_update_password()}</button>
           </div>
         </>
       ) : (
         <p class="text-sm text-zinc-600 dark:text-zinc-300">
-          You sign in through SSO, so there's no password on this account.
+          {m.settings_password_sso()}
         </p>
       )}
     </section>
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Notifications</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_notifications_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-5">
-        Set up a channel to get reminders on the day of a birthday or anniversary.
-        Click a channel to configure it.
+        {m.settings_notifications_description()}
       </p>
 
       <div class="pb-5 border-b mb-5">
-        <label class="label" for="notify-time">When to notify</label>
+        <label class="label" for="notify-time">{m.settings_notify_time_label()}</label>
         <input id="notify-time" class="input max-w-xs" type="time" />
         <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-2">
-          The time of day, in your instance's configured timezone, to send a reminder on the day
-          of any date with notifications turned on. Applies across every enabled channel.
+          {m.settings_notify_time_help()}
         </p>
         <div id="notify-time-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mt-3"></div>
       </div>
@@ -163,18 +176,18 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" class="toggle" id="email-enabled" onclick="event.stopPropagation()" />
-              Email
+              {m.settings_email()}
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
           <div class="pt-3">
-            <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-3">Sent to {user.email}</p>
+            <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-3">{m.settings_sent_to({ email: user.email })}</p>
             <div id="email-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
-              <button class="btn-secondary text-xs px-3 py-1.5" data-save="email">Save</button>
-              <button class="btn-ghost text-xs px-3 py-1.5" data-test="email">Send test</button>
+              <button class="btn-secondary text-xs px-3 py-1.5" data-save="email">{m.settings_save()}</button>
+              <button class="btn-ghost text-xs px-3 py-1.5" data-test="email">{m.settings_send_test()}</button>
             </div>
           </div>
         </details>
@@ -192,22 +205,22 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           <div class="pt-3">
             <div class="space-y-3 max-w-sm mb-3">
               <div>
-                <label class="label" for="ntfy-server">Server</label>
+                <label class="label" for="ntfy-server">{m.settings_server()}</label>
                 <input id="ntfy-server" class="input" type="text" placeholder="https://ntfy.sh" />
               </div>
               <div>
-                <label class="label" for="ntfy-topic">Topic</label>
-                <input id="ntfy-topic" class="input" type="text" placeholder="a hard-to-guess topic name" />
+                <label class="label" for="ntfy-topic">{m.settings_topic()}</label>
+                <input id="ntfy-topic" class="input" type="text" placeholder={m.settings_ntfy_topic_placeholder()} />
               </div>
               <div>
-                <label class="label" for="ntfy-access-token">Access token (optional)</label>
+                <label class="label" for="ntfy-access-token">{m.settings_access_token_optional()}</label>
                 <PasswordInput id="ntfy-access-token" />
               </div>
             </div>
             <div id="ntfy-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
-              <button class="btn-secondary text-xs px-3 py-1.5" data-save="ntfy">Save</button>
-              <button class="btn-ghost text-xs px-3 py-1.5" data-test="ntfy">Send test</button>
+              <button class="btn-secondary text-xs px-3 py-1.5" data-save="ntfy">{m.settings_save()}</button>
+              <button class="btn-ghost text-xs px-3 py-1.5" data-test="ntfy">{m.settings_send_test()}</button>
             </div>
           </div>
         </details>
@@ -224,13 +237,13 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           </summary>
           <div class="pt-3">
             <div class="max-w-sm mb-3">
-              <label class="label" for="discord-webhook-url">Webhook URL</label>
+              <label class="label" for="discord-webhook-url">{m.settings_webhook_url()}</label>
               <input id="discord-webhook-url" class="input" type="text" placeholder="https://discord.com/api/webhooks/..." />
             </div>
             <div id="discord-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
-              <button class="btn-secondary text-xs px-3 py-1.5" data-save="discord">Save</button>
-              <button class="btn-ghost text-xs px-3 py-1.5" data-test="discord">Send test</button>
+              <button class="btn-secondary text-xs px-3 py-1.5" data-save="discord">{m.settings_save()}</button>
+              <button class="btn-ghost text-xs px-3 py-1.5" data-test="discord">{m.settings_send_test()}</button>
             </div>
           </div>
         </details>
@@ -248,18 +261,18 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           <div class="pt-3">
             <div class="space-y-3 max-w-sm mb-3">
               <div>
-                <label class="label" for="telegram-bot-token">Bot token</label>
+                <label class="label" for="telegram-bot-token">{m.settings_bot_token()}</label>
                 <PasswordInput id="telegram-bot-token" />
               </div>
               <div>
-                <label class="label" for="telegram-chat-id">Chat ID</label>
+                <label class="label" for="telegram-chat-id">{m.settings_chat_id()}</label>
                 <input id="telegram-chat-id" class="input" type="text" />
               </div>
             </div>
             <div id="telegram-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
-              <button class="btn-secondary text-xs px-3 py-1.5" data-save="telegram">Save</button>
-              <button class="btn-ghost text-xs px-3 py-1.5" data-test="telegram">Send test</button>
+              <button class="btn-secondary text-xs px-3 py-1.5" data-save="telegram">{m.settings_save()}</button>
+              <button class="btn-ghost text-xs px-3 py-1.5" data-test="telegram">{m.settings_send_test()}</button>
             </div>
           </div>
         </details>
@@ -277,18 +290,18 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           <div class="pt-3">
             <div class="space-y-3 max-w-sm mb-3">
               <div>
-                <label class="label" for="pushover-user-key">User key</label>
+                <label class="label" for="pushover-user-key">{m.settings_user_key()}</label>
                 <input id="pushover-user-key" class="input" type="text" />
               </div>
               <div>
-                <label class="label" for="pushover-api-token">API token</label>
+                <label class="label" for="pushover-api-token">{m.settings_api_token()}</label>
                 <PasswordInput id="pushover-api-token" />
               </div>
             </div>
             <div id="pushover-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
-              <button class="btn-secondary text-xs px-3 py-1.5" data-save="pushover">Save</button>
-              <button class="btn-ghost text-xs px-3 py-1.5" data-test="pushover">Send test</button>
+              <button class="btn-secondary text-xs px-3 py-1.5" data-save="pushover">{m.settings_save()}</button>
+              <button class="btn-ghost text-xs px-3 py-1.5" data-test="pushover">{m.settings_send_test()}</button>
             </div>
           </div>
         </details>
@@ -306,60 +319,60 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           <div class="pt-3">
             <div class="space-y-3 max-w-sm mb-3">
               <div>
-                <label class="label" for="gotify-server">Server</label>
+                <label class="label" for="gotify-server">{m.settings_server()}</label>
                 <input id="gotify-server" class="input" type="text" placeholder="https://gotify.example.com" />
               </div>
               <div>
-                <label class="label" for="gotify-app-token">App token</label>
+                <label class="label" for="gotify-app-token">{m.settings_app_token()}</label>
                 <PasswordInput id="gotify-app-token" />
               </div>
               <div>
-                <label class="label" for="gotify-priority">Priority (optional, 0-10)</label>
-                <input id="gotify-priority" class="input" type="number" min="0" max="10" placeholder="app default" />
+                <label class="label" for="gotify-priority">{m.settings_priority_optional()}</label>
+                <input id="gotify-priority" class="input" type="number" min="0" max="10" placeholder={m.settings_app_default()} />
               </div>
             </div>
             <div id="gotify-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
             <div class="flex gap-2">
-              <button class="btn-secondary text-xs px-3 py-1.5" data-save="gotify">Save</button>
-              <button class="btn-ghost text-xs px-3 py-1.5" data-test="gotify">Send test</button>
+              <button class="btn-secondary text-xs px-3 py-1.5" data-save="gotify">{m.settings_save()}</button>
+              <button class="btn-ghost text-xs px-3 py-1.5" data-test="gotify">{m.settings_send_test()}</button>
             </div>
           </div>
         </details>
 
         <div>
-          <h3 class="text-sm font-medium mb-1">Device notifications</h3>
+          <h3 class="text-sm font-medium mb-1">{m.settings_device_notifications_title()}</h3>
           <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-3" id="webpush-description">
-            Get notifications on this device, even when Candlr isn't open in a tab.
+            {m.settings_device_notifications_description()}
           </p>
           <div id="webpush-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
           <div class="flex gap-2">
-            <button class="btn-secondary text-xs px-3 py-1.5" id="webpush-toggle-btn">Enable on this device</button>
-            <button class="btn-ghost text-xs px-3 py-1.5" id="webpush-test-btn" hidden>Send test</button>
+            <button class="btn-secondary text-xs px-3 py-1.5" id="webpush-toggle-btn">{m.settings_webpush_enable()}</button>
+            <button class="btn-ghost text-xs px-3 py-1.5" id="webpush-test-btn" hidden>{m.settings_send_test()}</button>
           </div>
         </div>
       </div>
     </section>
 
     <section id="shares" class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Shared calendars</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_shares_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Read-only web links to your calendar that work without logging in. Each one shows only the event types you picked, and never notes. Create one from the Share button on the Calendar page. Deleting a link stops it working straight away.
+        {m.settings_shares_description()}
       </p>
       <ul id="share-list" class="space-y-1.5"></ul>
       <p id="share-empty" class="hidden text-sm text-zinc-500 dark:text-zinc-400">
-        Nothing is shared yet. <a href="/calendar" class="font-medium hover:underline">Open the calendar</a> to create a link.
+        {m.settings_shares_empty_before()} <a href="/calendar" class="font-medium hover:underline">{m.settings_shares_empty_link()}</a> {m.settings_shares_empty_after()}
       </p>
       <div id="share-error" class="hidden text-sm px-3.5 py-2.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"></div>
     </section>
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Import and export</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_import_export_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Download every card and date as a file, or add cards from one. Photos are not included.
+        {m.settings_import_export_description()}
       </p>
       <div class="flex flex-wrap gap-2 mb-5">
-        <a href="/api/data/export?format=csv" download class="btn-secondary">Export CSV</a>
-        <a href="/api/data/export?format=json" download class="btn-secondary">Export JSON</a>
+        <a href="/api/data/export?format=csv" download class="btn-secondary">{m.settings_export_csv()}</a>
+        <a href="/api/data/export?format=json" download class="btn-secondary">{m.settings_export_json()}</a>
       </div>
 
       <label
@@ -370,86 +383,74 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
         </svg>
-        <span id="import-drop-text" class="text-sm font-medium">Drop a CSV, JSON or vCard file here, or click to choose</span>
-        <span class="text-xs text-zinc-500 dark:text-zinc-400">Up to 2 MB</span>
+        <span id="import-drop-text" class="text-sm font-medium">{m.settings_import_drop_hint()}</span>
+        <span class="text-xs text-zinc-500 dark:text-zinc-400">{m.settings_import_max_size()}</span>
         <input id="import-file" class="sr-only" type="file" accept=".csv,.json,.vcf,text/csv,application/json,text/vcard" />
       </label>
-      <button id="import-btn" class="btn-secondary mt-3" disabled>Import</button>
+      <button id="import-btn" class="btn-secondary mt-3" disabled>{m.settings_import()}</button>
       <div id="import-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mt-3"></div>
       <ul id="import-errors" class="hidden list-disc pl-5 mt-2 text-xs text-zinc-600 dark:text-zinc-300 space-y-0.5"></ul>
 
       <details class="mt-4 text-xs text-zinc-600 dark:text-zinc-300">
-        <summary class="cursor-pointer">File format</summary>
+        <summary class="cursor-pointer">{m.settings_file_format()}</summary>
         <div class="mt-2 space-y-2">
-          <p>
-            CSV has one row per date with the columns <code>name, type, month, day, year, notes, notify, address</code>.
-            Rows with the same name become one card. <code>year</code> and <code>notes</code> can be blank,
-            and a <code>date</code> column (<code>1990-04-12</code> or <code>04-12</code>) can replace
-            <code>month</code>, <code>day</code> and <code>year</code>. A blank <code>type</code> uses your first event type.
-          </p>
-          <p>
-            JSON is the same data grouped by person: <code set:text={jsonExample} />.
-          </p>
-          <p>
-            Importing merges into what you already have. A name that matches an existing card only gains the dates
-            it is missing, and event types that don't exist yet are created, so importing an export twice changes nothing.
-          </p>
+          <p set:html={m.settings_file_format_csv()} />
+          <p set:html={m.settings_file_format_json({ example: jsonExample })} />
+          <p>{m.settings_file_format_merge()}</p>
         </div>
       </details>
     </section>
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Address book sync</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_carddav_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Keep your cards in step with a CardDAV address book such as Radicale, Baïkal or Nextcloud. Birthdays and
-        anniversaries are pulled in regularly. The address book is the master copy: names and dates are overwritten by
-        the next sync, while your notes and reminder settings stay. Photos are not synced.
+        {m.settings_carddav_description()}
       </p>
       <div class="space-y-3 max-w-md">
         <div>
-          <label class="label" for="carddav-url">Address book URL</label>
+          <label class="label" for="carddav-url">{m.settings_carddav_url()}</label>
           <input id="carddav-url" class="input" type="url" placeholder="https://cloud.example.com/remote.php/dav/addressbooks/users/me/contacts/" autocomplete="off" />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="label" for="carddav-username">Username</label>
+            <label class="label" for="carddav-username">{m.settings_username()}</label>
             <input id="carddav-username" class="input" type="text" autocomplete="off" />
           </div>
           <div>
-            <label class="label" for="carddav-password">Password</label>
+            <label class="label" for="carddav-password">{m.settings_password_title()}</label>
             <input id="carddav-password" class="input" type="password" autocomplete="new-password" />
           </div>
         </div>
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          Use the address book's own URL, not the server's front page. If your server offers app passwords, use one.
+          {m.settings_carddav_hint()}
         </p>
       </div>
       <div class="flex flex-wrap gap-2 mt-4">
-        <button id="carddav-save-btn" type="button" class="btn-primary">Save and sync</button>
-        <button id="carddav-sync-btn" type="button" class="btn-secondary hidden">Sync now</button>
-        <button id="carddav-disconnect-btn" type="button" class="btn-secondary hidden">Disconnect</button>
+        <button id="carddav-save-btn" type="button" class="btn-primary">{m.settings_carddav_save_sync()}</button>
+        <button id="carddav-sync-btn" type="button" class="btn-secondary hidden">{m.settings_carddav_sync_now()}</button>
+        <button id="carddav-disconnect-btn" type="button" class="btn-secondary hidden">{m.settings_carddav_disconnect()}</button>
       </div>
       <div id="carddav-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mt-3"></div>
       <ul id="carddav-errors" class="hidden list-disc pl-5 mt-2 text-xs text-zinc-600 dark:text-zinc-300 space-y-0.5"></ul>
     </section>
 
     <section class="card p-6">
-      <h2 class="text-sm font-medium mb-1">Data management</h2>
+      <h2 class="text-sm font-medium mb-1">{m.settings_data_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Permanently deletes every person and date you're tracking. Your account and settings are kept. This cannot be undone.
+        {m.settings_data_description()}
       </p>
       <button id="open-delete-events-modal" class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-        Delete all my events
+        {m.settings_delete_all_events_button()}
       </button>
     </section>
 
     <section class="card p-6 border-red-200 dark:border-red-900/50">
-      <h2 class="text-sm font-medium mb-1 text-red-600 dark:text-red-400">Danger zone</h2>
+      <h2 class="text-sm font-medium mb-1 text-red-600 dark:text-red-400">{m.settings_danger_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Permanently delete your account and all of its data. This cannot be undone.
+        {m.settings_danger_description()}
       </p>
       <button id="open-delete-modal" class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-        Delete my account
+        {m.settings_delete_account_button()}
       </button>
     </section>
   </main>
@@ -458,8 +459,8 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     <div id="add-event-type-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative bg-surface dark:bg-surface-dark w-full min-w-0 max-w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl min-h-[min(30rem,92dvh)] max-h-[92dvh] overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="add-event-type-title">
       <div class="flex items-center justify-between mb-4">
-        <h2 id="add-event-type-title" class="text-base font-semibold">Add an event type</h2>
-        <button type="button" id="add-event-type-close-btn" class="icon-button btn-ghost p-1.5" aria-label="Close">
+        <h2 id="add-event-type-title" class="text-base font-semibold">{m.settings_add_event_type_title()}</h2>
+        <button type="button" id="add-event-type-close-btn" class="icon-button btn-ghost p-1.5" aria-label={m.settings_close()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -468,26 +469,26 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       <div id="new-event-type-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
       <div class="space-y-4">
         <div>
-          <label class="label" for="new-event-type">Name</label>
-          <input id="new-event-type" class="input" type="text" placeholder="e.g. Graduation" maxlength="64" />
+          <label class="label" for="new-event-type">{m.settings_name()}</label>
+          <input id="new-event-type" class="input" type="text" placeholder={m.settings_event_type_placeholder()} maxlength="64" />
         </div>
         <div>
-          <label class="label" for="new-event-type-interval">Repeats every</label>
+          <label class="label" for="new-event-type-interval">{m.settings_repeats_every()}</label>
           <div class="flex items-center gap-2">
             <input id="new-event-type-interval" class="input w-24 flex-shrink-0" type="number" min="1" max="1000" value="1" />
-            <select id="new-event-type-unit" class="select flex-1 min-w-0" aria-label="Repeat unit">
-              <option value="day">day(s)</option>
-              <option value="week">week(s)</option>
-              <option value="month">month(s)</option>
-              <option value="year" selected>year(s)</option>
+            <select id="new-event-type-unit" class="select flex-1 min-w-0" aria-label={m.settings_repeat_unit()}>
+              <option value="day">{m.settings_unit_days()}</option>
+              <option value="week">{m.settings_unit_weeks()}</option>
+              <option value="month">{m.settings_unit_months()}</option>
+              <option value="year" selected>{m.settings_unit_years()}</option>
             </select>
           </div>
           <p id="new-event-type-hint" class="hidden text-xs text-zinc-600 dark:text-zinc-300 mt-2"></p>
         </div>
       </div>
       <div class="flex gap-2 justify-end mt-5">
-        <button id="add-event-type-cancel-btn" type="button" class="btn-secondary">Cancel</button>
-        <button id="add-event-type-btn" type="button" class="btn-primary">Add</button>
+        <button id="add-event-type-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
+        <button id="add-event-type-btn" type="button" class="btn-primary">{m.settings_add()}</button>
       </div>
     </div>
   </div>
@@ -495,19 +496,19 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   <div id="carddav-disconnect-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="carddav-disconnect-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
-      <h2 class="text-base font-semibold mb-1.5">Disconnect the address book?</h2>
+      <h2 class="text-base font-semibold mb-1.5">{m.settings_carddav_disconnect_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-3">
-        Syncing stops. The cards it created stay as ordinary cards unless you choose to delete them.
+        {m.settings_carddav_disconnect_description()}
       </p>
       <label class="flex items-center gap-2 text-sm cursor-pointer mb-4">
         <input type="checkbox" class="toggle" id="carddav-delete-cards" />
-        Also delete the cards that were synced
+        {m.settings_carddav_delete_cards()}
       </label>
       <div class="flex gap-2 justify-end">
-        <button id="carddav-disconnect-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="carddav-disconnect-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
         <button id="carddav-disconnect-confirm-btn" type="button"
           class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-          Disconnect
+          {m.settings_carddav_disconnect()}
         </button>
       </div>
     </div>
@@ -517,15 +518,15 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   <div id="delete-share-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
     <div id="delete-share-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
-      <h2 class="text-base font-semibold mb-1.5">Delete <span id="delete-share-name"></span>?</h2>
+      <h2 id="delete-share-title" class="text-base font-semibold mb-1.5"></h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Anyone with this link will no longer be able to see the calendar. This cannot be undone.
+        {m.settings_delete_share_description()}
       </p>
       <div class="flex gap-2 justify-end">
-        <button id="delete-share-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="delete-share-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
         <button id="delete-share-confirm-btn" type="button"
           class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-          Delete
+          {m.settings_delete()}
         </button>
       </div>
     </div>
@@ -534,15 +535,15 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   <div id="delete-event-type-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="delete-event-type-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
-      <h2 class="text-base font-semibold mb-1.5">Delete <span id="delete-event-type-name"></span>?</h2>
+      <h2 id="delete-event-type-title" class="text-base font-semibold mb-1.5"></h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        This also deletes every date tracked under this type. This cannot be undone.
+        {m.settings_delete_event_type_description()}
       </p>
       <div class="flex gap-2 justify-end">
-        <button id="delete-event-type-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="delete-event-type-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
         <button id="delete-event-type-confirm-btn" type="button"
           class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-          Delete
+          {m.settings_delete()}
         </button>
       </div>
     </div>
@@ -551,22 +552,22 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   <div id="delete-events-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="delete-events-modal-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
-      <h2 class="text-base font-semibold mb-1.5">Delete all events?</h2>
+      <h2 class="text-base font-semibold mb-1.5">{m.settings_delete_events_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        This permanently deletes every person and date you're tracking. Your account and settings are kept. This cannot be undone.
+        {m.settings_delete_events_description()}
       </p>
       <div id="delete-events-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
       {user.has_password && (
         <div class="mb-4">
-          <label class="label" for="delete-events-password">Confirm your password</label>
+          <label class="label" for="delete-events-password">{m.settings_confirm_password()}</label>
           <PasswordInput id="delete-events-password" autocomplete="current-password" />
         </div>
       )}
       <div class="flex gap-2 justify-end">
-        <button id="delete-events-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="delete-events-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
         <button id="delete-events-confirm-btn" type="button"
           class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-          Delete all events
+          {m.settings_delete_all_events()}
         </button>
       </div>
     </div>
@@ -575,28 +576,42 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   <div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="delete-modal-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
-      <h2 class="text-base font-semibold mb-1.5">Delete account?</h2>
+      <h2 class="text-base font-semibold mb-1.5">{m.settings_delete_account_title()}</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        This permanently deletes your account and all of its data. This cannot be undone.
+        {m.settings_delete_account_description()}
       </p>
       <div id="delete-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
       {user.has_password && (
         <div class="mb-4">
-          <label class="label" for="delete-password">Confirm your password</label>
+          <label class="label" for="delete-password">{m.settings_confirm_password()}</label>
           <PasswordInput id="delete-password" autocomplete="current-password" />
         </div>
       )}
       <div class="flex gap-2 justify-end">
-        <button id="delete-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+        <button id="delete-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
         <button id="delete-confirm-btn" type="button"
           class="text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors">
-          Delete account
+          {m.settings_delete_account()}
         </button>
       </div>
     </div>
   </div>
 
-  <script define:vars={{ hasPassword: user.has_password, initialChannels: channels, vapidPublicKey, notifyTime, initialCarddav: carddav }}>
+  <script is:inline type="application/json" id="settings-data" set:html={JSON.stringify({ hasPassword: user.has_password, initialChannels: channels, vapidPublicKey, notifyTime, initialCarddav: carddav }).replace(/</g, "\\u003c")}></script>
+
+  <script>
+    import * as m from "../paraglide/messages.js";
+    import { getLocale } from "../paraglide/runtime.js";
+
+    const { hasPassword, initialChannels, vapidPublicKey, notifyTime, initialCarddav } = JSON.parse(document.getElementById("settings-data").textContent);
+
+    const cadenceLabel = (interval, unit) => {
+      const one = { day: m.settings_every_day, week: m.settings_every_week, month: m.settings_every_month, year: m.settings_every_year };
+      const many = { day: m.settings_every_n_days, week: m.settings_every_n_weeks, month: m.settings_every_n_months, year: m.settings_every_n_years };
+      return interval === 1 ? one[unit]() : many[unit]({ count: interval });
+    };
+    const formatDateTime = (value) => new Date(value).toLocaleString(getLocale());
+
     // ── Password change ──
     const pwBtn = document.getElementById("password-btn");
     const pwError = document.getElementById("password-error");
@@ -612,13 +627,13 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
       if (!currentPassword || !newPassword || !confirmNewPassword) return;
       if (newPassword !== confirmNewPassword) {
-        pwError.textContent = "New passwords do not match";
+        pwError.textContent = m.settings_passwords_mismatch();
         pwError.classList.remove("hidden");
         return;
       }
 
       pwBtn.disabled = true;
-      pwBtn.textContent = "Updating…";
+      pwBtn.textContent = m.settings_updating();
 
       try {
         const res = await fetch("/api/auth/change-password", {
@@ -628,21 +643,21 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         });
         if (!res.ok) {
           const text = await res.text();
-          let detail = "Could not update password";
+          let detail = m.settings_password_update_failed();
           try { detail = JSON.parse(text).detail ?? detail; } catch {}
           throw new Error(detail);
         }
         document.getElementById("current-password").value = "";
         document.getElementById("new-password").value = "";
         document.getElementById("confirm-new-password").value = "";
-        pwSuccess.textContent = "Password updated.";
+        pwSuccess.textContent = m.settings_password_updated();
         pwSuccess.classList.remove("hidden");
       } catch (e) {
         pwError.textContent = e.message;
         pwError.classList.remove("hidden");
       } finally {
         pwBtn.disabled = false;
-        pwBtn.textContent = "Update password";
+        pwBtn.textContent = m.settings_update_password();
       }
     });
 
@@ -664,7 +679,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       const needsYear = !(interval === 1 && ["month", "year"].includes(newEventTypeUnit.value));
       newEventTypeHint.classList.toggle("hidden", !needsYear);
       newEventTypeHint.textContent = needsYear
-        ? "Dates of this type count from their start date, so they need a full date including the year."
+        ? m.settings_cadence_hint()
         : "";
     }
     newEventTypeInterval?.addEventListener("input", syncNewEventTypeCadence);
@@ -701,10 +716,10 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       name.textContent = et.name;
       const cadence = et.interval === 1 && et.unit === "year"
         ? ""
-        : `<span class="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">${et.interval === 1 ? `every ${et.unit}` : `every ${et.interval} ${et.unit}s`}</span>`;
+        : `<span class="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">${cadenceLabel(et.interval, et.unit)}</span>`;
       return `
         <li class="flex items-center gap-2 px-2 py-2 rounded-lg bg-stone-50 dark:bg-white/5" data-event-type-id="${et.id}">
-          <button type="button" class="icon-button text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1" data-drag-handle aria-label="Drag to reorder">
+          <button type="button" class="icon-button text-zinc-400 dark:text-zinc-500 cursor-grab touch-none flex-shrink-0 p-1" data-drag-handle aria-label="${m.settings_drag_to_reorder()}">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <circle cx="9" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" />
               <circle cx="15" cy="6" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="15" cy="18" r="1.4" />
@@ -712,7 +727,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           </button>
           <span class="text-sm flex-1 truncate">${name.innerHTML}</span>
           ${cadence}
-          ${!et.is_default ? `<button class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${name.innerHTML}" title="Delete" aria-label="Delete ${name.innerHTML}">
+          ${!et.is_default ? `<button class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${name.innerHTML}" title="${m.settings_delete()}" aria-label="${m.settings_delete_named({ name: name.innerHTML })}">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -724,13 +739,13 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       const name = newEventTypeInput.value.trim();
       newEventTypeError.classList.add("hidden");
       if (!name) {
-        newEventTypeError.textContent = "Name is required";
+        newEventTypeError.textContent = m.settings_name_required();
         newEventTypeError.classList.remove("hidden");
         return;
       }
       const interval = Number(newEventTypeInterval.value);
       if (!Number.isInteger(interval) || interval < 1 || interval > 1000) {
-        newEventTypeError.textContent = "Repeat interval must be a whole number from 1 to 1000";
+        newEventTypeError.textContent = m.settings_interval_invalid();
         newEventTypeError.classList.remove("hidden");
         return;
       }
@@ -744,7 +759,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail?.[0]?.msg || data.detail || "Could not add event type");
+          throw new Error(data.detail?.[0]?.msg || data.detail || m.settings_event_type_add_failed());
         }
         const created = await res.json();
         eventTypeList.insertAdjacentHTML("beforeend", eventTypeRowHtml(created));
@@ -766,7 +781,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     }
 
     const deleteEventTypeModal = document.getElementById("delete-event-type-modal");
-    const deleteEventTypeName = document.getElementById("delete-event-type-name");
+    const deleteEventTypeName = document.getElementById("delete-event-type-title");
     const deleteEventTypeConfirmBtn = document.getElementById("delete-event-type-confirm-btn");
     let pendingDeleteEventTypeId = null;
 
@@ -774,7 +789,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       const btn = e.target.closest("[data-delete-event-type]");
       if (!btn) return;
       pendingDeleteEventTypeId = btn.dataset.deleteEventType;
-      deleteEventTypeName.textContent = btn.dataset.name;
+      deleteEventTypeName.textContent = m.settings_delete_named_title({ name: btn.dataset.name });
       deleteEventTypeModal.classList.remove("hidden");
     });
 
@@ -792,7 +807,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         const res = await fetch(`/api/event-types/${pendingDeleteEventTypeId}`, { method: "DELETE" });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Could not delete event type");
+          throw new Error(data.detail || m.settings_event_type_delete_failed());
         }
         eventTypeList.querySelector(`[data-event-type-id="${pendingDeleteEventTypeId}"]`)?.remove();
         closeDeleteEventTypeModal();
@@ -837,23 +852,23 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       const connected = !!account;
       carddavSyncBtn.classList.toggle("hidden", !connected);
       carddavDisconnectBtn.classList.toggle("hidden", !connected);
-      carddavSaveBtn.textContent = connected ? "Save changes" : "Save and sync";
-      carddavPassword.placeholder = account?.has_password ? "Saved. Leave blank to keep" : "";
+      carddavSaveBtn.textContent = connected ? m.settings_carddav_save_changes() : m.settings_carddav_save_sync();
+      carddavPassword.placeholder = account?.has_password ? m.settings_carddav_password_saved() : "";
       carddavClearStatus();
       if (!account) return;
       const result = account.last_result;
       if (account.last_error) {
-        const when = account.last_sync_at ? ` Last successful sync: ${new Date(account.last_sync_at).toLocaleString()}.` : "";
+        const when = account.last_sync_at ? m.settings_carddav_last_sync({ when: formatDateTime(account.last_sync_at) }) : "";
         carddavSay(`${account.last_error}.${when}`.replace(/\.\.$/, "."), true);
       } else if (account.last_sync_at && result) {
-        const parts = [`${plural(result.cards, "contact")} with a date`];
-        if (result.added) parts.push(`${result.added} added`);
-        if (result.updated) parts.push(`${result.updated} updated`);
-        if (result.removed) parts.push(`${result.removed} removed`);
-        if (result.skipped) parts.push(`${result.skipped} skipped`);
-        carddavSay(`Synced ${new Date(account.last_sync_at).toLocaleString()}: ${parts.join(", ")}.`, false);
+        const parts = [(result.cards === 1 ? m.settings_carddav_contacts_one : m.settings_carddav_contacts_other)({ count: result.cards })];
+        if (result.added) parts.push(m.settings_carddav_added({ count: result.added }));
+        if (result.updated) parts.push(m.settings_carddav_updated({ count: result.updated }));
+        if (result.removed) parts.push(m.settings_carddav_removed({ count: result.removed }));
+        if (result.skipped) parts.push(m.settings_carddav_skipped({ count: result.skipped }));
+        carddavSay(m.settings_carddav_synced({ when: formatDateTime(account.last_sync_at), parts: parts.join(", ") }), false);
       } else {
-        carddavSay("Connected. Not synced yet.", false);
+        carddavSay(m.settings_carddav_connected_unsynced(), false);
       }
       for (const message of result?.errors ?? []) {
         const li = document.createElement("li");
@@ -866,7 +881,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     async function carddavRequest(path, options) {
       const res = await fetch(`/api/carddav${path}`, options);
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail?.[0]?.msg || data.detail || "Something went wrong");
+      if (!res.ok) throw new Error(data.detail?.[0]?.msg || data.detail || m.settings_something_went_wrong());
       return data;
     }
 
@@ -875,7 +890,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     }
 
     async function runCarddavSync() {
-      carddavSay("Syncing...", false);
+      carddavSay(m.settings_carddav_syncing(), false);
       try {
         renderCarddav(await carddavRequest("/sync", { method: "POST" }));
       } catch (e) {
@@ -897,7 +912,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     carddavSaveBtn.addEventListener("click", async () => {
       const url = carddavUrl.value.trim();
       if (!url) {
-        carddavSay("Enter the address book URL", true);
+        carddavSay(m.settings_carddav_url_required(), true);
         return;
       }
       setCarddavBusy(true);
@@ -942,8 +957,8 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         renderCarddav(null);
         carddavSay(
           carddavDeleteCards.checked
-            ? `Disconnected. ${plural(data.cards, "card")} deleted.`
-            : `Disconnected. ${plural(data.cards, "card")} kept.`,
+            ? (data.cards === 1 ? m.settings_carddav_disconnected_deleted_one : m.settings_carddav_disconnected_deleted_other)({ count: data.cards })
+            : (data.cards === 1 ? m.settings_carddav_disconnected_kept_one : m.settings_carddav_disconnected_kept_other)({ count: data.cards }),
           false
         );
         carddavConfirmBtn.disabled = false;
@@ -975,13 +990,13 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     deleteBtn?.addEventListener("click", async () => {
       const password = hasPassword ? document.getElementById("delete-password")?.value : undefined;
       if (hasPassword && !password) {
-        deleteError.textContent = "Enter your password to confirm";
+        deleteError.textContent = m.settings_enter_password_confirm();
         deleteError.classList.remove("hidden");
         return;
       }
 
       deleteBtn.disabled = true;
-      deleteBtn.textContent = "Deleting…";
+      deleteBtn.textContent = m.settings_deleting();
 
       try {
         const res = await fetch("/api/auth/me", {
@@ -991,7 +1006,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         });
         if (!res.ok) {
           const text = await res.text();
-          let detail = "Could not delete account";
+          let detail = m.settings_account_delete_failed();
           try { detail = JSON.parse(text).detail ?? detail; } catch {}
           throw new Error(detail);
         }
@@ -1000,7 +1015,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         deleteError.textContent = e.message;
         deleteError.classList.remove("hidden");
         deleteBtn.disabled = false;
-        deleteBtn.textContent = "Delete account";
+        deleteBtn.textContent = m.settings_delete_account();
       }
     });
 
@@ -1024,13 +1039,13 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     deleteEventsBtn?.addEventListener("click", async () => {
       const password = hasPassword ? document.getElementById("delete-events-password")?.value : undefined;
       if (hasPassword && !password) {
-        deleteEventsError.textContent = "Enter your password to confirm";
+        deleteEventsError.textContent = m.settings_enter_password_confirm();
         deleteEventsError.classList.remove("hidden");
         return;
       }
 
       deleteEventsBtn.disabled = true;
-      deleteEventsBtn.textContent = "Deleting…";
+      deleteEventsBtn.textContent = m.settings_deleting();
 
       try {
         const res = await fetch("/api/people", {
@@ -1040,7 +1055,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         });
         if (!res.ok) {
           const text = await res.text();
-          let detail = "Could not delete events";
+          let detail = m.settings_events_delete_failed();
           try { detail = JSON.parse(text).detail ?? detail; } catch {}
           throw new Error(detail);
         }
@@ -1049,7 +1064,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         deleteEventsError.textContent = e.message;
         deleteEventsError.classList.remove("hidden");
         deleteEventsBtn.disabled = false;
-        deleteEventsBtn.textContent = "Delete all events";
+        deleteEventsBtn.textContent = m.settings_delete_all_events();
       }
     });
 
@@ -1107,34 +1122,32 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       }`;
     }
 
-    function plural(n, word) {
-      return `${n} ${word}${n === 1 ? "" : "s"}`;
-    }
+    const count = (n, one, other) => (n === 1 ? one : other)({ count: n });
 
     importBtn?.addEventListener("click", async () => {
       const file = importFile.files?.[0];
       importErrors.classList.add("hidden");
       importErrors.replaceChildren();
       if (!file) {
-        showImportStatus("Choose a file first", true);
+        showImportStatus(m.settings_import_choose_file(), true);
         return;
       }
 
       importBtn.disabled = true;
-      importBtn.textContent = "Importing…";
+      importBtn.textContent = m.settings_importing();
       try {
         const form = new FormData();
         form.append("file", file);
         const res = await fetch("/api/data/import", { method: "POST", body: form });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || "Could not import that file");
+        if (!res.ok) throw new Error(data.detail || m.settings_import_failed());
 
-        const parts = [`${plural(data.events_added, "date")} added`];
-        if (data.people_created) parts.push(`${plural(data.people_created, "new card")}`);
-        if (data.event_types_created) parts.push(`${plural(data.event_types_created, "new event type")}`);
-        if (data.events_skipped) parts.push(`${plural(data.events_skipped, "duplicate")} skipped`);
-        if (data.invalid_rows) parts.push(`${plural(data.invalid_rows, "invalid row")} skipped`);
-        showImportStatus(`Imported: ${parts.join(", ")}.`, false);
+        const parts = [count(data.events_added, m.settings_import_dates_added_one, m.settings_import_dates_added_other)];
+        if (data.people_created) parts.push(count(data.people_created, m.settings_import_new_cards_one, m.settings_import_new_cards_other));
+        if (data.event_types_created) parts.push(count(data.event_types_created, m.settings_import_new_event_types_one, m.settings_import_new_event_types_other));
+        if (data.events_skipped) parts.push(count(data.events_skipped, m.settings_import_duplicates_one, m.settings_import_duplicates_other));
+        if (data.invalid_rows) parts.push(count(data.invalid_rows, m.settings_import_invalid_rows_one, m.settings_import_invalid_rows_other));
+        showImportStatus(m.settings_import_done({ parts: parts.join(", ") }), false);
 
         for (const message of data.errors) {
           const li = document.createElement("li");
@@ -1151,7 +1164,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         showImportStatus(e.message, true);
       } finally {
         syncImportFile();
-        importBtn.textContent = "Import";
+        importBtn.textContent = m.settings_import();
       }
     });
 
@@ -1202,9 +1215,9 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Could not save");
+          throw new Error(data.detail || m.settings_save_failed());
         }
-        showStatus("notify-time", "Saved.", false);
+        showStatus("notify-time", m.settings_saved(), false);
       } catch (e) {
         showStatus("notify-time", e.message, true);
       }
@@ -1225,9 +1238,9 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Could not save");
+          throw new Error(data.detail || m.settings_save_failed());
         }
-        showStatus(channel, "Saved.", false);
+        showStatus(channel, m.settings_saved(), false);
       } catch (e) {
         showStatus(channel, e.message, true);
       }
@@ -1238,9 +1251,9 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         const res = await fetch(`/api/notifications/channels/${channel}/test`, { method: "POST" });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Test failed");
+          throw new Error(data.detail || m.settings_test_failed());
         }
-        showStatus(channel, "Test sent, check your device or app.", false);
+        showStatus(channel, m.settings_test_sent(), false);
       } catch (e) {
         showStatus(channel, e.message, true);
       }
@@ -1278,17 +1291,17 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     async function refreshWebpushUI() {
       if (!vapidPublicKey) {
-        webpushDescription.textContent = "Device notifications aren't configured on this server.";
+        webpushDescription.textContent = m.settings_webpush_not_configured();
         webpushToggleBtn.disabled = true;
         return;
       }
       if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-        webpushDescription.textContent = "This browser doesn't support device notifications.";
+        webpushDescription.textContent = m.settings_webpush_unsupported();
         webpushToggleBtn.disabled = true;
         return;
       }
       const sub = await getExistingSubscription();
-      webpushToggleBtn.textContent = sub ? "Disable on this device" : "Enable on this device";
+      webpushToggleBtn.textContent = sub ? m.settings_webpush_disable() : m.settings_webpush_enable();
       webpushTestBtn.hidden = !sub;
     }
 
@@ -1303,11 +1316,11 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
             body: JSON.stringify({ endpoint: existing.endpoint }),
           });
           await existing.unsubscribe();
-          showStatus("webpush", "Disabled on this device.", false);
+          showStatus("webpush", m.settings_webpush_disabled(), false);
         } else {
           const permission = await Notification.requestPermission();
           if (permission !== "granted") {
-            throw new Error("Notification permission was not granted");
+            throw new Error(m.settings_webpush_permission_denied());
           }
           const reg = await navigator.serviceWorker.register("/sw.js");
           await navigator.serviceWorker.ready;
@@ -1323,9 +1336,9 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail || "Could not save subscription");
+            throw new Error(data.detail || m.settings_webpush_subscribe_failed());
           }
-          showStatus("webpush", "Enabled on this device.", false);
+          showStatus("webpush", m.settings_webpush_enabled(), false);
         }
       } catch (e) {
         showStatus("webpush", e.message, true);
@@ -1341,6 +1354,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   </script>
 
   <script>
+    import * as m from "../paraglide/messages.js";
     import { initDragReorder } from "../lib/dragReorder.js";
     import { enhanceSelects } from "../lib/customSelect.js";
 
@@ -1359,7 +1373,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
           });
           if (!res.ok) {
             const errorEl = document.getElementById("event-type-error");
-            errorEl.textContent = "Could not save the new order.";
+            errorEl.textContent = m.settings_reorder_failed();
             errorEl.classList.remove("hidden");
           }
         },
@@ -1368,6 +1382,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
   </script>
 
   <script>
+    import * as m from "../paraglide/messages.js";
     import { copyText, listShares, shareUrl } from "../lib/shares.js";
     import { lockScroll, unlockScroll } from "../lib/scrollLock.js";
     import { showToast } from "../lib/toast.js";
@@ -1416,18 +1431,18 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         chip.textContent = t.name;
         chips.append(chip);
       }
-      if (!share.event_types.length) chips.textContent = "None";
+      if (!share.event_types.length) chips.textContent = m.settings_share_none();
       const yesNo = (on) => {
         const el = document.createElement("span");
-        el.textContent = on ? "Shown" : "Hidden";
+        el.textContent = on ? m.settings_share_shown() : m.settings_share_hidden();
         el.className = on ? "font-medium" : "text-zinc-500 dark:text-zinc-400";
         return el;
       };
       details.append(
-        detailRow("Event types", chips),
-        detailRow("Photos", yesNo(share.show_photos)),
-        detailRow("Ages and years", yesNo(share.show_ages)),
-        detailRow("Addresses", yesNo(share.show_addresses)),
+        detailRow(m.settings_share_event_types(), chips),
+        detailRow(m.settings_share_photos(), yesNo(share.show_photos)),
+        detailRow(m.settings_share_ages(), yesNo(share.show_ages)),
+        detailRow(m.settings_share_addresses(), yesNo(share.show_addresses)),
       );
       toggle.addEventListener("click", () => {
         const open = details.classList.toggle("hidden") === false;
@@ -1446,7 +1461,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       };
 
       const copy = iconButton(
-        "Copy link",
+        m.settings_share_copy_link(),
         "hover:text-zinc-900 dark:hover:text-white",
         "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z",
       );
@@ -1455,12 +1470,12 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         document.body.appendChild(probe);
         const ok = await copyText(probe.value, probe);
         probe.remove();
-        showToast(ok ? "Link copied" : "Could not copy the link", ok ? "success" : "error");
+        showToast(ok ? m.settings_share_link_copied() : m.settings_share_copy_failed(), ok ? "success" : "error");
       });
 
       // Deleting breaks the link for everyone who has it, so it asks first.
       const del = iconButton(
-        "Delete",
+        m.settings_delete(),
         "hover:text-red-600 dark:hover:text-red-400",
         "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
       );
@@ -1473,13 +1488,13 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
 
     // ── Delete confirmation ──
     const deleteShareModal = document.getElementById("delete-share-modal");
-    const deleteShareName = document.getElementById("delete-share-name");
+    const deleteShareName = document.getElementById("delete-share-title");
     const deleteShareConfirm = document.getElementById("delete-share-confirm-btn");
     let pendingDelete = null;
 
     function openDeleteShare(share, row) {
       pendingDelete = { share, row };
-      deleteShareName.textContent = share.name;
+      deleteShareName.textContent = m.settings_delete_named_title({ name: share.name });
       const wasHidden = deleteShareModal.classList.contains("hidden");
       deleteShareModal.classList.remove("hidden");
       if (wasHidden) lockScroll();
@@ -1499,10 +1514,10 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
       deleteShareConfirm.disabled = true;
       try {
         const res = await fetch(`/api/shares/${share.id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Could not delete the shared calendar");
+        if (!res.ok) throw new Error(m.settings_share_delete_failed());
         row.remove();
         if (!shareList.children.length) shareEmpty.classList.remove("hidden");
-        showToast("Shared calendar deleted");
+        showToast(m.settings_share_deleted());
       } catch (e) {
         showToast(e.message, "error");
       } finally {

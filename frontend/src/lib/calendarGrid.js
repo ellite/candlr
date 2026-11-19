@@ -2,7 +2,8 @@
 // Perpetual on purpose: navigation is month-only, and which dates land on a
 // day comes from each date's type cadence (occursOn in lib/dates.js).
 import { avatarHtml } from "./avatar.js";
-import { MONTH_NAMES, occursOn } from "./dates.js";
+import * as m from "../paraglide/messages.js";
+import { monthDay, monthName, occursOn } from "./dates.js";
 
 function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate();
@@ -23,7 +24,7 @@ export function createMonthGrid({ people, grid, monthLabel, prevBtn, nextBtn, to
   let viewMonth = today.getMonth() + 1; // 1-12
 
   function render() {
-    monthLabel.textContent = `${MONTH_NAMES[viewMonth - 1]} ${viewYear}`;
+    monthLabel.textContent = `${monthName(viewMonth)} ${viewYear}`;
     grid.innerHTML = "";
 
     const daysThisMonth = daysInMonth(viewYear, viewMonth);
@@ -104,7 +105,7 @@ export function createMonthGrid({ people, grid, monthLabel, prevBtn, nextBtn, to
 
       cell.innerHTML = html;
       if (entries.length) {
-        cell.setAttribute("aria-label", `${MONTH_NAMES[cellMonth - 1]} ${cellDay}: ${entries.length} ${entries.length === 1 ? "event" : "events"}`);
+        cell.setAttribute("aria-label", `${monthDay(cellMonth, cellDay)}: ${entries.length === 1 ? m.calendar_event_count_one({ count: 1 }) : m.calendar_event_count_other({ count: entries.length })}`);
         cell.addEventListener("click", () => onOpenDay(cellMonth, cellDay, cellYear, entries));
       }
       grid.appendChild(cell);

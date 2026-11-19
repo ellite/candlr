@@ -29,9 +29,14 @@ class UserOut(BaseModel):
     email: str
     is_admin: bool
     has_password: bool
+    language: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class LanguageUpdate(BaseModel):
+    language: Literal["en", "pt-PT"]
 
 
 class ChangePassword(BaseModel):

@@ -1,11 +1,12 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import * as m from "../paraglide/messages.js";
 ---
 
-<Layout title="Not Found" fullPage>
+<Layout title={m.error_title_not_found()} fullPage>
   <div class="text-center px-4">
-    <h1 class="text-lg font-semibold tracking-tight mb-1.5">Page not found</h1>
-    <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-6">That page doesn't exist.</p>
-    <a href="/" class="btn-primary">Go home</a>
+    <h1 class="text-lg font-semibold tracking-tight mb-1.5">{m.error_page_not_found()}</h1>
+    <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-6">{m.error_page_missing()}</p>
+    <a href="/" class="btn-primary">{m.error_go_home()}</a>
   </div>
 </Layout>

@@ -7,6 +7,11 @@ const cookies = Astro.request.headers.get("cookie") ?? "";
 
 import type { EventType, Person } from "../lib/events";
 import { cadenceLabel, isYearly } from "../lib/dates.js";
+import * as m from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
+
+const monthFormatter = new Intl.DateTimeFormat(getLocale(), { month: "long", timeZone: "UTC" });
+const monthNames = Array.from({ length: 12 }, (_, i) => monthFormatter.format(new Date(Date.UTC(2000, i, 1))));
 
 // Fired concurrently rather than awaited one at a time - these three don't
 // depend on each other's results, only on the shared cookie, so a serial
@@ -27,22 +32,22 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
 const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 ---
 
-<Layout title="Events" user={{ username, is_admin }} activePage="events">
+<Layout title={m.events_title()} user={{ username, is_admin }} activePage="events">
   <main id="events-main" class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
     <div class="flex items-center justify-between gap-4 mb-6 flex-wrap">
       <div class="relative flex items-center justify-end gap-1.5 sm:gap-2 w-full min-w-0">
         <div class="flex justify-end flex-shrink-0">
-          <button id="search-toggle-btn" type="button" class="icon-button btn-secondary flex items-center justify-center gap-2 transition-opacity duration-200 motion-reduce:transition-none" aria-label="Search" aria-expanded="false" aria-controls="search-field">
+          <button id="search-toggle-btn" type="button" class="icon-button btn-secondary flex items-center justify-center gap-2 transition-opacity duration-200 motion-reduce:transition-none" aria-label={m.events_search()} aria-expanded="false" aria-controls="search-field">
             <svg class="w-4 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <circle cx="10.5" cy="10.5" r="6.5" />
               <path stroke-linecap="round" d="m16 16 4 4" />
             </svg>
-            <span class="hidden sm:inline">Search</span>
+            <span class="hidden sm:inline">{m.events_search()}</span>
           </button>
           <div id="search-field" class="absolute inset-0 z-10 flex items-center gap-1 w-full min-w-0" inert>
-            <label for="search-input" class="sr-only">Search by name</label>
-            <input id="search-input" class="input min-w-0 pr-12 [&::-webkit-search-cancel-button]:appearance-none" type="search" placeholder="Search by name..." autocomplete="off" aria-controls="people-grid" />
-            <button id="clear-search-btn" type="button" class="icon-button btn-ghost absolute right-0.5 top-1/2 -translate-y-1/2" aria-label="Clear and close search">
+            <label for="search-input" class="sr-only">{m.events_search_by_name()}</label>
+            <input id="search-input" class="input min-w-0 pr-12 [&::-webkit-search-cancel-button]:appearance-none" type="search" placeholder={m.events_search_placeholder()} autocomplete="off" aria-controls="people-grid" />
+            <button id="clear-search-btn" type="button" class="icon-button btn-ghost absolute right-0.5 top-1/2 -translate-y-1/2" aria-label={m.events_clear_search()}>
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path stroke-linecap="round" d="m6 6 12 12M6 18 18 6" />
               </svg>
@@ -51,16 +56,16 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
         </div>
         <div id="dashboard-actions" class="flex items-center justify-end gap-1.5 sm:gap-2 flex-1 min-w-0 transition-opacity duration-200 motion-reduce:transition-none">
         <select id="sort-select" class="select flex-1 min-w-0 max-w-36">
-          <option value="upcoming">Upcoming</option>
-          <option value="name">A - Z</option>
+          <option value="upcoming">{m.events_sort_upcoming()}</option>
+          <option value="name">{m.events_sort_name()}</option>
         </select>
-        <button id="select-mode-btn" type="button" class="icon-button btn-secondary flex items-center justify-center gap-2 flex-shrink-0" aria-pressed="false" aria-label="Select">
+        <button id="select-mode-btn" type="button" class="icon-button btn-secondary flex items-center justify-center gap-2 flex-shrink-0" aria-pressed="false" aria-label={m.events_select()}>
           <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span id="select-mode-label" class="hidden sm:inline">Select</span>
+          <span id="select-mode-label" class="hidden sm:inline">{m.events_select()}</span>
         </button>
-        <button id="add-date-btn" class="btn-primary flex-shrink-0">+ Add</button>
+        <button id="add-date-btn" class="btn-primary flex-shrink-0">{m.events_add()}</button>
         </div>
       </div>
     </div>
@@ -68,12 +73,12 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     <p id="search-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
     <div id="empty-state" class="hidden card p-10 text-center">
-      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">No dates yet. Add the first one to get started.</p>
-      <button class="btn-primary" id="empty-add-date-btn">+ Add</button>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">{m.events_empty()}</p>
+      <button class="btn-primary" id="empty-add-date-btn">{m.events_add()}</button>
     </div>
 
     <div id="no-results" class="hidden card p-10 text-center">
-      <p class="text-sm text-zinc-600 dark:text-zinc-300">No matching names. Try another search or clear it to see all cards.</p>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300">{m.events_no_results()}</p>
     </div>
 
     <div id="people-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"></div>
@@ -85,19 +90,19 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
          sm:contents so on desktop every control sits in one row as before. -->
     <div class="pointer-events-auto card shadow-lg flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-1.5 p-2.5 w-full sm:w-auto max-w-full">
       <div class="flex items-center gap-1.5 sm:contents">
-        <span id="bulk-count" class="flex-1 sm:flex-none text-sm font-medium px-2 tabular-nums" role="status" aria-live="polite">0 selected</span>
-        <button id="bulk-all-btn" type="button" class="btn-ghost text-sm py-1.5">Select all</button>
-        <button id="bulk-cancel-btn" type="button" class="btn-ghost p-2 sm:py-1.5 sm:px-3 sm:order-4 text-sm" aria-label="Cancel selection">
+        <span id="bulk-count" class="flex-1 sm:flex-none text-sm font-medium px-2 tabular-nums" role="status" aria-live="polite">{m.events_selected_count({ count: 0 })}</span>
+        <button id="bulk-all-btn" type="button" class="btn-ghost text-sm py-1.5">{m.events_select_all()}</button>
+        <button id="bulk-cancel-btn" type="button" class="btn-ghost p-2 sm:py-1.5 sm:px-3 sm:order-4 text-sm" aria-label={m.events_cancel_selection()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
-          <span class="hidden sm:inline">Cancel</span>
+          <span class="hidden sm:inline">{m.events_cancel()}</span>
         </button>
       </div>
       <div class="grid grid-cols-3 gap-1.5 sm:contents">
-        <button id="bulk-type-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3 whitespace-nowrap" disabled>Change type</button>
-        <button id="bulk-notify-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3" disabled>Reminders</button>
-        <button id="bulk-delete-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3 text-red-600 dark:text-red-400" disabled>Delete</button>
+        <button id="bulk-type-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3 whitespace-nowrap" disabled>{m.events_change_type()}</button>
+        <button id="bulk-notify-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3" disabled>{m.events_reminders()}</button>
+        <button id="bulk-delete-btn" type="button" class="btn-secondary text-sm px-2 sm:px-3 py-2 sm:order-3 text-red-600 dark:text-red-400" disabled>{m.events_delete()}</button>
       </div>
     </div>
   </div>
@@ -116,13 +121,13 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
       <div id="bulk-pane-type" class="hidden space-y-3 mb-4">
         <div>
-          <label class="label" for="bulk-from-type">Change dates of type</label>
+          <label class="label" for="bulk-from-type">{m.events_change_dates_of_type()}</label>
           <select id="bulk-from-type" class="select">
             {eventTypes.map((et) => <option value={et.id}>{et.name}</option>)}
           </select>
         </div>
         <div>
-          <label class="label" for="bulk-to-type">To</label>
+          <label class="label" for="bulk-to-type">{m.events_to()}</label>
           <select id="bulk-to-type" class="select">
             {eventTypes.map((et) => <option value={et.id}>{et.name}</option>)}
           </select>
@@ -130,11 +135,11 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
       </div>
 
       <div class="flex flex-wrap gap-2 justify-end">
-        <button type="button" class="bulk-cancel btn-secondary">Cancel</button>
-        <button id="bulk-notify-off-btn" type="button" class="hidden btn-secondary">Turn off</button>
-        <button id="bulk-notify-on-btn" type="button" class="hidden btn-primary">Turn on</button>
-        <button id="bulk-type-confirm-btn" type="button" class="hidden btn-primary">Change type</button>
-        <button id="bulk-delete-confirm-btn" type="button" class="hidden text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50">Delete</button>
+        <button type="button" class="bulk-cancel btn-secondary">{m.events_cancel()}</button>
+        <button id="bulk-notify-off-btn" type="button" class="hidden btn-secondary">{m.events_turn_off()}</button>
+        <button id="bulk-notify-on-btn" type="button" class="hidden btn-primary">{m.events_turn_on()}</button>
+        <button id="bulk-type-confirm-btn" type="button" class="hidden btn-primary">{m.events_change_type()}</button>
+        <button id="bulk-delete-confirm-btn" type="button" class="hidden text-sm font-medium px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50">{m.events_delete()}</button>
       </div>
     </div>
   </div>
@@ -144,8 +149,8 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     <div class="form-backdrop absolute inset-0 bg-black/40"></div>
     <div class="relative bg-surface dark:bg-surface-dark w-full min-w-0 max-w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[92dvh] overflow-y-auto p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 id="form-title" class="text-base font-semibold">Add a date</h2>
-        <button type="button" class="form-close icon-button btn-ghost p-1.5" aria-label="Close">
+        <h2 id="form-title" class="text-base font-semibold">{m.events_form_add_title()}</h2>
+        <button type="button" class="form-close icon-button btn-ghost p-1.5" aria-label={m.events_close()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -156,76 +161,76 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 
       <div class="space-y-4">
         <div id="form-name-field">
-          <label class="label" for="form-name">Name</label>
-          <input id="form-name" class="input" type="text" placeholder="Joanna" maxlength="100" />
+          <label class="label" for="form-name">{m.events_name()}</label>
+          <input id="form-name" class="input" type="text" placeholder={m.events_name_placeholder()} maxlength="100" />
         </div>
 
         <div id="form-address-field">
-          <label class="label" for="form-address">Address</label>
-          <textarea id="form-address" class="input" rows="3" maxlength="500" placeholder="For sending a card or gift (optional)"></textarea>
+          <label class="label" for="form-address">{m.events_address()}</label>
+          <textarea id="form-address" class="input" rows="3" maxlength="500" placeholder={m.events_address_placeholder()}></textarea>
         </div>
 
         <div id="form-date-picker" class="hidden">
-          <p class="label">Dates on this card</p>
+          <p class="label">{m.events_dates_on_card()}</p>
           <div id="form-date-buttons" class="flex flex-wrap gap-2"></div>
         </div>
 
         <div>
-          <label class="label" for="form-event-type">Event type</label>
+          <label class="label" for="form-event-type">{m.events_event_type()}</label>
           <select id="form-event-type" class="select">
             {eventTypes.map((et) => <option value={et.id}>{et.name}{isYearly(et) ? "" : ` (${cadenceLabel(et)})`}</option>)}
           </select>
         </div>
 
         <div>
-          <label class="label">Date</label>
+          <label class="label">{m.events_date()}</label>
           <div class="grid grid-cols-2 gap-2 mb-2">
             <select id="form-month" class="select">
-              {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
-                <option value={i + 1}>{m}</option>
+              {monthNames.map((name, i) => (
+                <option value={i + 1}>{name}</option>
               ))}
             </select>
             <select id="form-day" class="select">
               {Array.from({ length: 31 }).map((_, i) => <option value={i + 1}>{i + 1}</option>)}
             </select>
           </div>
-          <input id="form-year" class="input" type="number" placeholder="Year" min="1" max="2100" />
+          <input id="form-year" class="input" type="number" placeholder={m.events_year_placeholder()} min="1" max="2100" />
           <label class="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300 mt-2 cursor-pointer">
             <input type="checkbox" class="toggle" id="form-year-unknown" />
-            I don't know (or don't want to enter) the year
+            {m.events_year_unknown()}
           </label>
           <p id="form-cadence-hint" class="hidden text-xs text-zinc-600 dark:text-zinc-300 mt-2"></p>
         </div>
 
         <div>
-          <label class="label" for="form-notes">Notes</label>
-          <textarea id="form-notes" class="input" rows="3" placeholder="Anything worth remembering. Markdown supported."></textarea>
+          <label class="label" for="form-notes">{m.events_notes()}</label>
+          <textarea id="form-notes" class="input" rows="3" placeholder={m.events_notes_placeholder()}></textarea>
         </div>
 
         <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
           <input type="checkbox" class="toggle" id="form-notify" checked />
-          Notify me about this date
+          {m.events_notify()}
         </label>
 
         <div id="form-image-fields" class="pt-3 border-t">
-          <label class="label">Photo (optional)</label>
+          <label class="label">{m.events_photo_optional()}</label>
           <div id="form-image-empty" class="flex gap-2">
             <label class="btn-secondary text-sm cursor-pointer flex-shrink-0 flex items-center">
-              Upload
+              {m.events_upload()}
               <input id="form-image-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" />
             </label>
-            <input id="form-image-url" class="input min-w-0 flex-1" type="text" placeholder="...or paste an image URL" />
-            <button type="button" id="form-image-url-btn" class="btn-secondary flex-shrink-0 text-sm">Use</button>
+            <input id="form-image-url" class="input min-w-0 flex-1" type="text" placeholder={m.events_image_url_placeholder()} />
+            <button type="button" id="form-image-url-btn" class="btn-secondary flex-shrink-0 text-sm">{m.events_use()}</button>
           </div>
           <div id="form-image-preview" class="hidden flex items-center gap-3 mt-3">
             <img id="form-image-preview-img" class="w-12 h-12 rounded-full object-cover" alt="" />
-            <button type="button" id="form-image-edit-btn" class="text-sm px-2 text-zinc-600 dark:text-zinc-300 hover:underline">Crop</button>
-            <button type="button" id="form-image-remove-btn" class="text-sm px-2 text-red-600 dark:text-red-400 hover:underline">Remove</button>
+            <button type="button" id="form-image-edit-btn" class="text-sm px-2 text-zinc-600 dark:text-zinc-300 hover:underline">{m.events_crop()}</button>
+            <button type="button" id="form-image-remove-btn" class="text-sm px-2 text-red-600 dark:text-red-400 hover:underline">{m.events_remove()}</button>
           </div>
           <div id="form-image-error" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs px-3 py-2 rounded-lg mt-2"></div>
         </div>
 
-        <button id="form-submit-btn" class="btn-primary w-full mt-1">Save</button>
+        <button id="form-submit-btn" class="btn-primary w-full mt-1">{m.events_save()}</button>
       </div>
     </div>
   </div>
@@ -237,7 +242,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
   <div id="image-editor-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
     <div data-editor-backdrop class="absolute inset-0 bg-black/60"></div>
     <div class="relative card p-6 w-full max-w-sm">
-      <h2 class="text-base font-semibold mb-4">Adjust photo</h2>
+      <h2 class="text-base font-semibold mb-4">{m.image_editor_title()}</h2>
       <div class="flex justify-center mb-4">
         <canvas
           data-editor-canvas
@@ -255,10 +260,10 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
           <circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="M21 21l-4.3-4.3" /><path stroke-linecap="round" d="M11 8v6M8 11h6" />
         </svg>
       </div>
-      <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-4">Drag the photo to reposition it, use the slider to zoom.</p>
+      <p class="text-xs text-zinc-600 dark:text-zinc-300 mb-4">{m.image_editor_hint()}</p>
       <div class="flex gap-2 justify-end">
-        <button type="button" data-editor-cancel class="btn-secondary">Cancel</button>
-        <button type="button" data-editor-confirm class="btn-primary">Use photo</button>
+        <button type="button" data-editor-cancel class="btn-secondary">{m.events_cancel()}</button>
+        <button type="button" data-editor-confirm class="btn-primary">{m.image_editor_use_photo()}</button>
       </div>
     </div>
   </div>
@@ -268,6 +273,7 @@ const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
     window.__CANDLR_INITIAL_PEOPLE__ = initialPeople;
   </script>
   <script>
+    import * as m from "../paraglide/messages.js";
     import { enhanceSelects } from "../lib/customSelect.js";
     import { initImageEditor } from "../lib/imageEditor.js";
     import { createPersonDetail } from "../lib/personDetail.js";
@@ -287,7 +293,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Could not fetch that image");
+        throw new Error(data.detail || m.events_image_fetch_error());
       }
       return res.blob();
     }
@@ -334,7 +340,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       emptyState.classList.toggle("hidden", people.length > 0);
       grid.classList.toggle("hidden", visiblePeople.length === 0);
       noResults.classList.toggle("hidden", people.length === 0 || visiblePeople.length > 0);
-      searchStatus.textContent = query ? `${visiblePeople.length} matching ${visiblePeople.length === 1 ? "card" : "cards"}.` : "";
+      searchStatus.textContent = query ? (visiblePeople.length === 1 ? m.events_search_status_one({ count: visiblePeople.length }) : m.events_search_status_other({ count: visiblePeople.length })) : "";
 
       for (const person of visiblePeople) {
         const soonest = soonestEvent(person);
@@ -438,8 +444,11 @@ import { cardBellHtml } from "../lib/reminders.js";
     const bulkDeleteConfirmBtn = document.getElementById("bulk-delete-confirm-btn");
     const bulkPaneButtons = [bulkNotifyOnBtn, bulkNotifyOffBtn, bulkTypeConfirmBtn, bulkDeleteConfirmBtn];
 
-    function plural(n, word) {
-      return `${n} ${word}${n === 1 ? "" : "s"}`;
+    function cardsText(n) {
+      return n === 1 ? m.events_cards_one({ count: n }) : m.events_cards_other({ count: n });
+    }
+    function datesText(n) {
+      return n === 1 ? m.events_dates_one({ count: n }) : m.events_dates_other({ count: n });
     }
 
     function paintCard(card, isSelected) {
@@ -458,10 +467,10 @@ import { cardBellHtml } from "../lib/reminders.js";
 
     function updateBulkBar() {
       bulkBar.classList.toggle("hidden", !selectMode);
-      bulkCount.textContent = `${selected.size} selected`;
+      bulkCount.textContent = m.events_selected_count({ count: selected.size });
       for (const button of bulkActionBtns) button.disabled = selected.size === 0;
       const ids = visibleIds();
-      bulkAllBtn.textContent = ids.length > 0 && ids.every((id) => selected.has(id)) ? "Clear" : "Select all";
+      bulkAllBtn.textContent = ids.length > 0 && ids.every((id) => selected.has(id)) ? m.events_clear_selection() : m.events_select_all();
       bulkAllBtn.disabled = ids.length === 0;
     }
 
@@ -476,8 +485,8 @@ import { cardBellHtml } from "../lib/reminders.js";
       selectMode = on;
       selected.clear();
       selectModeBtn.setAttribute("aria-pressed", String(on));
-      selectModeBtn.setAttribute("aria-label", on ? "Done" : "Select");
-      document.getElementById("select-mode-label").textContent = on ? "Done" : "Select";
+      selectModeBtn.setAttribute("aria-label", on ? m.events_done() : m.events_select());
+      document.getElementById("select-mode-label").textContent = on ? m.events_done() : m.events_select();
       // Room to scroll the last row clear of the floating bar.
       eventsMain.classList.toggle("pb-32", on);
       renderCards();
@@ -503,25 +512,25 @@ import { cardBellHtml } from "../lib/reminders.js";
 
     function openBulkModal(pane) {
       const count = selected.size;
-      const cards = plural(count, "card");
+      const cards = cardsText(count);
       bulkError.classList.add("hidden");
       bulkTypePane.classList.toggle("hidden", pane !== "type");
       for (const button of bulkPaneButtons) button.classList.add("hidden");
 
       if (pane === "type") {
-        bulkTitle.textContent = "Change date type";
-        bulkMessage.textContent = `Applies to the ${cards} selected. Dates of other types are left alone.`;
+        bulkTitle.textContent = m.events_bulk_type_title();
+        bulkMessage.textContent = m.events_bulk_type_message({ cards });
         bulkFromType.value = String(eventTypes[0]?.id ?? "");
         bulkToType.value = String((eventTypes[1] ?? eventTypes[0])?.id ?? "");
         bulkTypeConfirmBtn.classList.remove("hidden");
       } else if (pane === "notify") {
-        bulkTitle.textContent = "Reminders";
-        bulkMessage.textContent = `Turn reminders on or off for every date on the ${cards} selected.`;
+        bulkTitle.textContent = m.events_reminders();
+        bulkMessage.textContent = m.events_bulk_notify_message({ cards });
         bulkNotifyOffBtn.classList.remove("hidden");
         bulkNotifyOnBtn.classList.remove("hidden");
       } else {
-        bulkTitle.textContent = `Delete ${cards}?`;
-        bulkMessage.textContent = "This permanently deletes them along with all of their dates. This cannot be undone.";
+        bulkTitle.textContent = m.events_bulk_delete_title({ cards });
+        bulkMessage.textContent = m.events_bulk_delete_message();
         bulkDeleteConfirmBtn.classList.remove("hidden");
       }
       bulkModal.classList.remove("hidden");
@@ -535,7 +544,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       const idleLabel = button.textContent;
       bulkError.classList.add("hidden");
       for (const b of bulkPaneButtons) b.disabled = true;
-      button.textContent = "Working…";
+      button.textContent = m.events_working();
       try {
         const res = await fetch("/api/people/bulk", {
           method: "POST",
@@ -543,7 +552,7 @@ import { cardBellHtml } from "../lib/reminders.js";
           body: JSON.stringify({ ...body, ids: [...selected] }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not apply that change");
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : m.events_bulk_error());
         closeBulkModal();
         await refreshPeople();
         setSelectMode(false);
@@ -567,17 +576,17 @@ import { cardBellHtml } from "../lib/reminders.js";
       runBulk(
         { action: "set_type", from_event_type_id: Number(bulkFromType.value), to_event_type_id: Number(bulkToType.value) },
         bulkTypeConfirmBtn,
-        (r) => (r.dates ? `Changed ${plural(r.dates, "date")} on ${plural(r.people, "card")}` : "No dates of that type on the selected cards"),
+        (r) => (r.dates ? m.events_bulk_changed({ dates: datesText(r.dates), cards: cardsText(r.people) }) : m.events_bulk_none()),
       ),
     );
     bulkNotifyOnBtn.addEventListener("click", () =>
-      runBulk({ action: "set_notify", notify: true }, bulkNotifyOnBtn, (r) => `Reminders on for ${plural(r.dates, "date")}`),
+      runBulk({ action: "set_notify", notify: true }, bulkNotifyOnBtn, (r) => m.events_bulk_reminders_on({ dates: datesText(r.dates) })),
     );
     bulkNotifyOffBtn.addEventListener("click", () =>
-      runBulk({ action: "set_notify", notify: false }, bulkNotifyOffBtn, (r) => `Reminders off for ${plural(r.dates, "date")}`),
+      runBulk({ action: "set_notify", notify: false }, bulkNotifyOffBtn, (r) => m.events_bulk_reminders_off({ dates: datesText(r.dates) })),
     );
     bulkDeleteConfirmBtn.addEventListener("click", () =>
-      runBulk({ action: "delete" }, bulkDeleteConfirmBtn, (r) => `Deleted ${plural(r.people, "card")}`),
+      runBulk({ action: "delete" }, bulkDeleteConfirmBtn, (r) => m.events_bulk_deleted({ cards: cardsText(r.people) })),
     );
 
     document.addEventListener("keydown", (event) => {
@@ -676,23 +685,23 @@ import { cardBellHtml } from "../lib/reminders.js";
       resetForm();
 
       if (mode === "create") {
-        formTitle.textContent = "Add a date";
+        formTitle.textContent = m.events_form_add_title();
         formNameField.classList.remove("hidden");
         formAddressField.classList.remove("hidden");
         formImageFields.classList.remove("hidden");
-        formSubmitBtn.textContent = "Save";
+        formSubmitBtn.textContent = m.events_save();
       } else if (mode === "add-event") {
-        formTitle.textContent = "Add another date";
+        formTitle.textContent = m.events_form_add_another();
         formNameField.classList.add("hidden");
         formAddressField.classList.add("hidden");
         formImageFields.classList.add("hidden");
-        formSubmitBtn.textContent = "Save";
+        formSubmitBtn.textContent = m.events_save();
       } else if (mode === "edit-card") {
-        formTitle.textContent = "Edit card";
+        formTitle.textContent = m.events_form_edit_card();
         formNameField.classList.remove("hidden");
         formAddressField.classList.remove("hidden");
         formImageFields.classList.remove("hidden");
-        formSubmitBtn.textContent = "Save changes";
+        formSubmitBtn.textContent = m.events_save_changes();
         formName.value = context.person.name;
         formAddress.value = context.person.address ?? "";
         existingImageUrl = context.person.image_url;
@@ -765,7 +774,9 @@ import { cardBellHtml } from "../lib/reminders.js";
       formCadenceHint.classList.toggle("hidden", isYearly(type));
       formCadenceHint.textContent = isYearly(type)
         ? ""
-        : `Repeats ${cadenceLabel(type)}, counting from this date.${strict ? " The year is required." : ""}`;
+        : strict
+          ? m.events_cadence_hint_strict({ cadence: cadenceLabel(type) })
+          : m.events_cadence_hint({ cadence: cadenceLabel(type) });
     }
     formEventType.addEventListener("change", syncCadence);
 
@@ -785,7 +796,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       const res = await fetch(`/api/people/${personId}/image`, { method: "POST", body: fd });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Could not upload photo");
+        throw new Error(data.detail || m.events_photo_upload_error());
       }
     }
 
@@ -827,7 +838,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       try {
         if (!pendingImageSourceBlob && existingImageUrl && !removeExistingImage) {
           const res = await fetch(`/api${existingImageUrl}`);
-          if (!res.ok) throw new Error("Could not load photo");
+          if (!res.ok) throw new Error(m.events_photo_load_error());
           pendingImageSourceBlob = await res.blob();
         }
         if (!pendingImageSourceBlob) return;
@@ -865,7 +876,7 @@ import { cardBellHtml } from "../lib/reminders.js";
       try {
         if (formMode === "create") {
           const name = formName.value.trim();
-          if (!name) throw new Error("Name is required");
+          if (!name) throw new Error(m.events_name_required());
           const res = await fetch("/api/people", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -873,7 +884,7 @@ import { cardBellHtml } from "../lib/reminders.js";
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail?.[0]?.msg || data.detail || "Could not save");
+            throw new Error(data.detail?.[0]?.msg || data.detail || m.events_save_error());
           }
           const person = await res.json();
           if (pendingImageBlob) {
@@ -887,11 +898,11 @@ import { cardBellHtml } from "../lib/reminders.js";
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail?.[0]?.msg || data.detail || "Could not save");
+            throw new Error(data.detail?.[0]?.msg || data.detail || m.events_save_error());
           }
         } else if (formMode === "edit-card") {
           const name = formName.value.trim();
-          if (!name) throw new Error("Name is required");
+          if (!name) throw new Error(m.events_name_required());
           draftEvents[selectedEventIndex] = { id: draftEvents[selectedEventIndex].id, ...eventPayload() };
           const res = await fetch(`/api/people/${formContext.personId}`, {
             method: "PUT",
@@ -900,7 +911,7 @@ import { cardBellHtml } from "../lib/reminders.js";
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.detail?.[0]?.msg || data.detail || "Could not save");
+            throw new Error(data.detail?.[0]?.msg || data.detail || m.events_save_error());
           }
           personDetail.setCurrent(await res.json());
           try {
@@ -908,11 +919,11 @@ import { cardBellHtml } from "../lib/reminders.js";
               await uploadPersonImage(formContext.personId, pendingImageBlob);
             } else if (removeExistingImage && existingImageUrl) {
               const imageRes = await fetch(`/api/people/${formContext.personId}/image`, { method: "DELETE" });
-              if (!imageRes.ok) throw new Error("Could not remove photo");
+              if (!imageRes.ok) throw new Error(m.events_photo_remove_error());
             }
           } catch (e) {
             await refreshPeople();
-            throw new Error(`Name and dates saved, but the photo could not be saved. ${e.message}. Try saving again.`);
+            throw new Error(m.events_photo_save_partial({ error: e.message }));
           }
         }
 

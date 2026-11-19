@@ -1,5 +1,6 @@
 ---
 import Logo from "./Logo.astro";
+import * as m from "../paraglide/messages.js";
 ---
 
 <div class="relative hidden md:flex flex-col justify-between overflow-hidden bg-zinc-950 text-white px-12 py-12 lg:px-16">
@@ -15,10 +16,10 @@ import Logo from "./Logo.astro";
 
   <div class="relative z-10 max-w-sm">
     <h2 class="text-3xl font-semibold tracking-tight leading-tight mb-3">
-      Never miss a birthday again.
+      {m.auth_hero_title()}
     </h2>
     <p class="text-zinc-400 text-sm leading-relaxed mb-10">
-      Candlr keeps track of everyone's birthdays in one place, and reminds you before they happen.
+      {m.auth_hero_text()}
     </p>
 
     <div class="grid grid-cols-7 gap-1.5 w-fit">
@@ -34,5 +35,5 @@ import Logo from "./Logo.astro";
     </div>
   </div>
 
-  <p class="relative z-10 text-xs text-zinc-600">Open source and self-hosted.</p>
+  <p class="relative z-10 text-xs text-zinc-600">{m.auth_hero_footer()}</p>
 </div>

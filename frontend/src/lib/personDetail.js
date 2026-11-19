@@ -12,6 +12,7 @@ import { escapeHtml, avatarHtml } from "./avatar.js";
 import { formatDate, ageLabel, dueLabel, highlightNumber } from "./dates.js";
 import { reminderLineHtml } from "./reminders.js";
 import { showToast } from "./toast.js";
+import * as m from "../paraglide/messages.js";
 import { lockScroll, unlockScroll } from "./scrollLock.js";
 
 marked.setOptions({ breaks: true });
@@ -49,12 +50,12 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
             ${reminderLineHtml(ev)}
           </div>
           <div class="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-            <button type="button" class="icon-button btn-ghost p-1.5" data-edit-event="${ev.id}" aria-label="Edit">
+            <button type="button" class="icon-button btn-ghost p-1.5" data-edit-event="${ev.id}" aria-label="${escapeHtml(m.person_edit())}">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </button>
-            <button type="button" class="icon-button btn-ghost p-1.5" data-delete-event="${ev.id}" aria-label="Delete">
+            <button type="button" class="icon-button btn-ghost p-1.5" data-delete-event="${ev.id}" aria-label="${escapeHtml(m.person_delete())}">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -113,7 +114,7 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
       close();
       onEditEvent(person, ev);
     } else if (deleteBtn) {
-      openConfirm("event", Number(deleteBtn.dataset.deleteEvent), "Delete this date?", "This cannot be undone.");
+      openConfirm("event", Number(deleteBtn.dataset.deleteEvent), m.person_delete_date_title(), m.person_cannot_undo());
     }
   });
 
@@ -130,7 +131,7 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
   });
 
   document.getElementById("detail-delete-person-btn").addEventListener("click", () => {
-    openConfirm("person", currentPerson.id, "Delete this card?", `This permanently deletes ${currentPerson.name} and all of their dates.`);
+    openConfirm("person", currentPerson.id, m.person_delete_card_title(), m.person_delete_card_message({ name: currentPerson.name }));
   });
 
   // ── Shared confirm modal ──
@@ -161,14 +162,14 @@ export function createPersonDetail({ onEditCard, onEditEvent, onAddEvent, onDele
         const res = await fetch(`/api/events/${pendingDelete.id}`, { method: "DELETE" });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Could not delete");
+          throw new Error(data.detail || m.person_delete_error());
         }
         currentPerson = await res.json();
         render();
         await onDeleteEvent?.(currentPerson);
       } else if (pendingDelete.type === "person") {
         const res = await fetch(`/api/people/${pendingDelete.id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Could not delete");
+        if (!res.ok) throw new Error(m.person_delete_error());
         const deletedId = pendingDelete.id;
         close();
         await onDeletePerson?.(deletedId);

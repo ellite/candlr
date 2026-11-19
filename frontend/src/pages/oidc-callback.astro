@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import * as m from "../paraglide/messages.js";
 import { apiFetch } from "../lib/api";
 import { applySetCookies } from "../lib/cookies";
 
@@ -20,9 +21,9 @@ if (!error) {
   const storedState = Astro.cookies.get("oidc_state")?.value ?? "";
 
   if (!code) {
-    error = "No authorization code returned by provider.";
+    error = m.oidc_no_code();
   } else if (!storedState || storedState !== state) {
-    error = "Invalid state parameter. Please try logging in again.";
+    error = m.oidc_invalid_state();
   } else {
     Astro.cookies.delete("oidc_state", { path: "/" });
     const storedNext = Astro.cookies.get("oidc_next")?.value ?? "/";
@@ -35,21 +36,21 @@ if (!error) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "SSO login failed");
+        throw new Error(data.detail || m.oidc_login_failed());
       }
       applySetCookies(Astro.cookies, res.headers);
       const data = await res.json();
       return Astro.redirect(data.requires_2fa ? `/two-factor?next=${encodeURIComponent(storedNext)}` : storedNext);
     } catch (e: unknown) {
-      error = e instanceof Error ? e.message : "SSO login failed";
+      error = e instanceof Error ? e.message : m.oidc_login_failed();
     }
   }
 }
 ---
 
-<Layout title="Signing in" fullPage>
+<Layout title={m.oidc_title_signing_in()} fullPage>
   <div class="card p-6 text-center max-w-sm space-y-4">
     <p class="text-red-600 dark:text-red-400 text-sm">{error}</p>
-    <a href="/login" class="btn-primary inline-block">Back to login</a>
+    <a href="/login" class="btn-primary inline-block">{m.auth_back_to_login()}</a>
   </div>
 </Layout>

@@ -1,9 +1,15 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import Logo from "../../components/Logo.astro";
+import * as m from "../../paraglide/messages.js";
+import { getLocale } from "../../paraglide/runtime.js";
 import { apiJson } from "../../lib/api";
 
 const { token } = Astro.params;
+
+// 2024-01-01 is a Monday; week starts on Monday in the grid.
+const weekdayFormat = new Intl.DateTimeFormat(getLocale(), { weekday: "short" });
+const weekdays = Array.from({ length: 7 }, (_, i) => weekdayFormat.format(new Date(2024, 0, 1 + i)));
 
 type EventType = { id: number; name: string; is_default: boolean; interval: number; unit: "day" | "week" | "month" | "year" };
 type SharedEvent = {
@@ -30,11 +36,11 @@ if (!calendar) Astro.response.status = 404;
 ---
 
 {!calendar && (
-  <Layout title="Not found" fullPage>
+  <Layout title={m.shared_title_not_found()} fullPage>
     <div class="text-center px-4">
       <Logo size="md" class="mb-6" />
-      <h1 class="text-lg font-semibold tracking-tight mb-1.5">Calendar not found</h1>
-      <p class="text-sm text-zinc-600 dark:text-zinc-300">This link is no longer shared, or it was mistyped.</p>
+      <h1 class="text-lg font-semibold tracking-tight mb-1.5">{m.shared_calendar_not_found()}</h1>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300">{m.shared_link_dead()}</p>
     </div>
   </Layout>
 )}
@@ -45,12 +51,12 @@ if (!calendar) Astro.response.status = 404;
     <Logo size="md" class="mb-6" />
     <div class="mb-6">
       <h1 class="text-lg font-semibold tracking-tight">{calendar.name}</h1>
-      <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">Shared by {calendar.shared_by}</p>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">{m.shared_by({ name: calendar.shared_by })}</p>
     </div>
 
     <div class="card p-4 sm:p-6">
       <div class="flex items-center justify-between mb-4">
-        <button type="button" id="cal-prev-btn" class="icon-button btn-ghost p-2" aria-label="Previous month">
+        <button type="button" id="cal-prev-btn" class="icon-button btn-ghost p-2" aria-label={m.shared_prev_month()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -58,10 +64,10 @@ if (!calendar) Astro.response.status = 404;
         <div class="flex items-center gap-3">
           <div id="cal-month-label" class="text-base font-semibold tabular-nums"></div>
           <button type="button" id="cal-today-btn" class="px-2 text-sm sm:text-xs text-zinc-600 dark:text-zinc-300 hover:underline">
-            Today
+            {m.shared_today()}
           </button>
         </div>
-        <button type="button" id="cal-next-btn" class="icon-button btn-ghost p-2" aria-label="Next month">
+        <button type="button" id="cal-next-btn" class="icon-button btn-ghost p-2" aria-label={m.shared_next_month()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
           </svg>
@@ -69,7 +75,7 @@ if (!calendar) Astro.response.status = 404;
       </div>
 
       <div class="grid grid-cols-7 gap-1 mb-1">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+        {weekdays.map((d) => (
           <div class="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 py-1">{d}</div>
         ))}
       </div>
@@ -83,7 +89,7 @@ if (!calendar) Astro.response.status = 404;
     <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 id="day-modal-title" class="text-base font-semibold"></h2>
-        <button type="button" class="day-close icon-button btn-ghost p-1.5" aria-label="Close">
+        <button type="button" class="day-close icon-button btn-ghost p-1.5" aria-label={m.shared_close()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -100,7 +106,8 @@ if (!calendar) Astro.response.status = 404;
   <script>
     import { avatarHtml, escapeHtml } from "../../lib/avatar.js";
     import { createMonthGrid } from "../../lib/calendarGrid.js";
-    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber } from "../../lib/dates.js";
+    import { getLocale } from "../../paraglide/runtime.js";
+    import { ageLabelForOccurrence, highlightNumber } from "../../lib/dates.js";
     import { lockScroll, unlockScroll } from "../../lib/scrollLock.js";
 
     const { render, today } = createMonthGrid({
@@ -118,7 +125,7 @@ if (!calendar) Astro.response.status = 404;
     const dayModalList = document.getElementById("day-modal-list");
 
     function openDayModal(month, day, year, entries) {
-      dayModalTitle.textContent = `${MONTH_NAMES[month - 1]} ${day}`;
+      dayModalTitle.textContent = new Date(2000, month - 1, day).toLocaleDateString(getLocale(), { month: "long", day: "numeric" });
       dayModalList.innerHTML = "";
       for (const { person, event } of entries) {
         const row = document.createElement("div");

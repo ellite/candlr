@@ -46,6 +46,8 @@ dist/
 node_modules/
 frontend/dist/
 frontend/.astro/
+# Paraglide output, regenerated from frontend/messages on every dev/build
+frontend/src/paraglide/
 
 # OS
 .DS_Store

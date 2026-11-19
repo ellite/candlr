@@ -9,6 +9,8 @@ RUN npm ci
 # a local frontend/.env.* file into a build where Vite could embed it.
 COPY frontend/astro.config.mjs frontend/tsconfig.json ./
 COPY frontend/public ./public
+COPY frontend/project.inlang ./project.inlang
+COPY frontend/messages ./messages
 COPY frontend/src ./src
 RUN npm run build
 

@@ -2,6 +2,9 @@ import type { APIContext } from "astro";
 import { defineMiddleware } from "astro:middleware";
 import { apiFetch } from "./lib/api";
 import { applySetCookies } from "./lib/cookies";
+import { paraglideMiddleware } from "./paraglide/server.js";
+import { cookieMaxAge, cookieName, isLocale } from "./paraglide/runtime.js";
+import { setAccountLocale } from "./lib/ui-locale";
 
 const PUBLIC_PAGES = [
   "/login",
@@ -80,6 +83,32 @@ async function slideSession(context: APIContext): Promise<void> {
   } catch {}
 }
 
+// A signed-in browser with no candlr_language cookie (a new device, or the
+// first request after an SSO login) gets its language from the account, so it
+// renders in the right language straight away instead of waiting for a visit
+// to Settings. The cookie is then set so client-side scripts, which can't see
+// the account, resolve the same language. A failed lookup just means English
+// (or whatever the cookie says) for this request.
+async function resolveAccountLocale(context: APIContext): Promise<void> {
+  if (context.cookies.get(cookieName)?.value) return;
+  try {
+    const res = await apiFetch("/auth/me", { cookies: context.request.headers.get("cookie") ?? "" });
+    if (!res.ok) return;
+    const { language } = (await res.json()) as { language?: string };
+    if (language && isLocale(language)) {
+      setAccountLocale(context.request, language);
+      context.cookies.set(cookieName, language, { path: "/", sameSite: "lax", maxAge: cookieMaxAge });
+    }
+  } catch {}
+}
+
+// Pages render in the visitor's language; the API routes render no UI text, so
+// they skip the wrapper (it clones the request, which matters for uploads).
+function render(context: APIContext, next: () => Promise<Response>): Promise<Response> {
+  if (context.url.pathname.startsWith("/api/")) return next();
+  return paraglideMiddleware(context.request, () => next());
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
@@ -88,7 +117,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     PUBLIC_API_ROUTES.some((r) => pathname.startsWith(r)) ||
     pathname.startsWith("/_astro")
   ) {
-    return withHeaders(await next(), pathname);
+    return withHeaders(await render(context, next), pathname);
   }
 
   const token = context.cookies.get("candlr_token");
@@ -96,7 +125,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect("/login");
   }
 
-  const response = await next();
+  if (!pathname.startsWith("/api/")) await resolveAccountLocale(context);
+  const response = await render(context, next);
   await slideSession(context);
   return withHeaders(response, pathname);
 });

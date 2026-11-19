@@ -1,6 +1,8 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import ThemeToggle from "../components/ThemeToggle.astro";
+import LanguageSwitcher from "../components/LanguageSwitcher.astro";
+import * as m from "../paraglide/messages.js";
 import Logo from "../components/Logo.astro";
 import AuthHero from "../components/AuthHero.astro";
 import PasswordInput from "../components/PasswordInput.astro";
@@ -26,12 +28,13 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
 }));
 ---
 
-<Layout title="Login">
+<Layout title={m.auth_title_login()}>
   <div class="min-h-dvh grid md:grid-cols-2">
     <AuthHero />
 
     <div class="relative flex items-center justify-center px-4 py-16">
-      <div class="fixed top-4 right-4 z-20">
+      <div class="fixed top-4 right-4 z-20 flex items-center gap-2">
+        <LanguageSwitcher class="input !w-auto !py-1.5 text-sm" />
         <ThemeToggle class="p-2 rounded-lg bg-surface dark:bg-surface-dark border" />
       </div>
 
@@ -40,8 +43,8 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
           <div class="md:hidden mb-4">
             <Logo size="md" />
           </div>
-          <h1 class="text-lg font-semibold tracking-tight">Welcome back</h1>
-          <p class="text-zinc-600 dark:text-zinc-300 mt-1 text-sm">Sign in to your account</p>
+          <h1 class="text-lg font-semibold tracking-tight">{m.auth_welcome_back()}</h1>
+          <p class="text-zinc-600 dark:text-zinc-300 mt-1 text-sm">{m.auth_sign_in_subtitle()}</p>
         </div>
 
         <div class="card p-6 space-y-4">
@@ -55,7 +58,7 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
               </svg>
-              Sign in with {oidcConfig.provider_name}
+              {m.auth_sign_in_with({ provider: oidcConfig.provider_name })}
             </a>
           )}
 
@@ -65,7 +68,7 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
                 <div class="w-full border-t"></div>
               </div>
               <div class="relative flex justify-center">
-                <span class="bg-surface dark:bg-surface-dark px-3 text-xs text-zinc-400">or</span>
+                <span class="bg-surface dark:bg-surface-dark px-3 text-xs text-zinc-400">{m.auth_or()}</span>
               </div>
             </div>
           )}
@@ -73,15 +76,15 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
           {!oidcConfig.disable_password_login && (
             <>
               <div>
-                <label class="label" for="username">Username or email</label>
-                <input id="username" class="input" type="text" autocomplete="username" placeholder="your_username or you@example.com" tabindex="1" />
+                <label class="label" for="username">{m.auth_username_or_email()}</label>
+                <input id="username" class="input" type="text" autocomplete="username" placeholder={m.auth_username_or_email_placeholder()} tabindex="1" />
               </div>
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <label class="label mb-0" for="password">Password</label>
+                  <label class="label mb-0" for="password">{m.auth_password()}</label>
                   {passwordReset.enabled && (
                     <a href="/forgot-password" tabindex="5" class="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline">
-                      Forgot password?
+                      {m.auth_forgot_password_link()}
                     </a>
                   )}
                 </div>
@@ -89,16 +92,16 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
               </div>
               <label class="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" id="remember" class="toggle" tabindex="3" />
-                Keep me logged in
+                {m.auth_keep_logged_in()}
               </label>
-              <button id="login-btn" class="btn-primary w-full mt-1" tabindex="4">Sign in</button>
+              <button id="login-btn" class="btn-primary w-full mt-1" tabindex="4">{m.auth_sign_in()}</button>
             </>
           )}
         </div>
 
         {!oidcConfig.disable_password_login && registration.enabled && (
           <p class="text-sm text-zinc-600 dark:text-zinc-300 mt-4">
-            No account? <a href="/register" class="text-accent dark:text-accent-light font-medium hover:underline">Create one</a>
+            {m.auth_no_account()} <a href="/register" class="text-accent dark:text-accent-light font-medium hover:underline">{m.auth_create_one()}</a>
           </p>
         )}
       </div>
@@ -106,6 +109,8 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
   </div>
 
   <script>
+    import * as m from "../paraglide/messages.js";
+
     const btn = document.getElementById("login-btn") as HTMLButtonElement | null;
     const errEl = document.getElementById("error-msg")!;
 
@@ -117,7 +122,7 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
       if (!username || !password) return;
 
       btn.disabled = true;
-      btn.textContent = "Signing in…";
+      btn.textContent = m.auth_signing_in();
       errEl.classList.add("hidden");
 
       try {
@@ -128,17 +133,21 @@ const passwordReset = await apiJson<{ enabled: boolean }>("/auth/password-reset-
         });
         if (!res.ok) {
           const text = await res.text();
-          let detail = "Login failed";
+          let detail = m.auth_login_failed();
           try { detail = JSON.parse(text).detail ?? detail; } catch {}
           throw new Error(detail);
         }
         const data = await res.json();
+        // Apply the account language right away, even if another one was picked on this page.
+        if (data.language) {
+          document.cookie = "candlr_language=" + data.language + "; path=/; max-age=34560000; samesite=lax";
+        }
         window.location.href = data.requires_2fa ? "/two-factor" : "/";
       } catch (e: any) {
         errEl.textContent = e.message;
         errEl.classList.remove("hidden");
         btn.disabled = false;
-        btn.textContent = "Sign In";
+        btn.textContent = m.auth_sign_in();
       }
     }
 

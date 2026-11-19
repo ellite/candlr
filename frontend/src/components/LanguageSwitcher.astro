@@ -1,0 +1,51 @@
+---
+import { getLocale } from "../paraglide/runtime.js";
+import * as m from "../paraglide/messages.js";
+import { UI_LANGUAGES } from "../lib/ui-languages";
+
+interface Props {
+  // Signed-in users also save the choice to their account, so it follows them
+  // to other devices. Public pages only set the cookie.
+  persist?: boolean;
+  class?: string;
+  id?: string;
+}
+const { persist = false, class: className = "select", id = "language-select" } = Astro.props;
+const current = getLocale();
+---
+
+<select id={id} class={className} aria-label={m.language_interface_label()} data-language-switcher data-persist={persist ? "true" : "false"}>
+  {UI_LANGUAGES.map((lang) => <option value={lang.code} selected={lang.code === current}>{lang.name}</option>)}
+</select>
+
+<script>
+  import { setLocale, isLocale } from "../paraglide/runtime.js";
+  import * as m from "../paraglide/messages.js";
+  import { showToast } from "../lib/toast.js";
+
+  document.querySelectorAll<HTMLSelectElement>("[data-language-switcher]").forEach((select) => {
+    if (select.dataset.bound) return;
+    select.dataset.bound = "true";
+    const previous = select.value;
+    select.addEventListener("change", async () => {
+      const language = select.value;
+      if (!isLocale(language)) return;
+      if (select.dataset.persist === "true") {
+        try {
+          const res = await fetch("/api/settings/language", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ language }),
+          });
+          if (!res.ok) throw new Error(String(res.status));
+        } catch {
+          select.value = previous;
+          showToast(m.language_save_failed(), "error");
+          return;
+        }
+      }
+      // Sets the candlr_language cookie and reloads, so the page re-renders in the new language.
+      setLocale(language);
+    });
+  });
+</script>

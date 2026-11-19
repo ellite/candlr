@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import * as m from "../paraglide/messages.js";
 import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
@@ -53,13 +54,13 @@ if (currentVersion !== "dev") {
 }
 ---
 
-<Layout title="About" user={{ username: user.username, is_admin: user.is_admin }}>
+<Layout title={m.about_title()} user={{ username: user.username, is_admin: user.is_admin }}>
   <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
     <div class="flex items-center gap-4">
-      <img src="/branding/symbol-v2.png" alt="Candlr logo" class="w-11 h-14 object-contain" />
+      <img src="/branding/symbol-v2.png" alt={m.about_logo_alt()} class="w-11 h-14 object-contain" />
       <div>
         <h1 class="text-lg font-semibold tracking-tight">Candlr</h1>
-        <p class="text-sm text-zinc-600 dark:text-zinc-300">Version {currentVersion}</p>
+        <p class="text-sm text-zinc-600 dark:text-zinc-300">{m.about_version({ version: currentVersion })}</p>
       </div>
     </div>
 
@@ -74,7 +75,7 @@ if (currentVersion !== "dev") {
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
           </svg>
-          Version <strong>{latestVersion}</strong> is available - view changelog
+          {m.about_update_version_prefix()} <strong>{latestVersion}</strong> {m.about_update_available_suffix()}
         </span>
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 flex-shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10M7 17 17 7" />
@@ -83,11 +84,11 @@ if (currentVersion !== "dev") {
     )}
 
     <p class="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-      Candlr is an open-source, self-hosted birthday calendar. It keeps track of everyone's birthdays and anniversaries in one place, and reminds you on the day.
+      {m.about_description()}
     </p>
 
     <section class="card p-6 space-y-3">
-      <h2 class="text-sm font-medium">Links</h2>
+      <h2 class="text-sm font-medium">{m.about_links()}</h2>
       <div class="space-y-2">
         <a
           href="https://github.com/ellite/candlr"
@@ -98,7 +99,7 @@ if (currentVersion !== "dev") {
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12" />
           </svg>
-          <span>GitHub - ellite/candlr</span>
+          <span>{m.about_link_github()}</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 7h10v10" />
             <path d="M7 17 17 7" />
@@ -114,7 +115,7 @@ if (currentVersion !== "dev") {
             <circle cx="12" cy="12" r="10" />
             <path stroke-linecap="round" d="M12 8v4M12 16h.01" />
           </svg>
-          <span>Issues &amp; requests</span>
+          <span>{m.about_link_issues()}</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 7h10v10" />
             <path d="M7 17 17 7" />
@@ -130,7 +131,7 @@ if (currentVersion !== "dev") {
             <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
           </svg>
-          <span>License - GNU GPL v3</span>
+          <span>{m.about_link_license()}</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 7h10v10" />
             <path d="M7 17 17 7" />
@@ -146,7 +147,7 @@ if (currentVersion !== "dev") {
             <path stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
-          <span>Author - Henrique.pt</span>
+          <span>{m.about_link_author()}</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 7h10v10" />
             <path d="M7 17 17 7" />
@@ -156,7 +157,7 @@ if (currentVersion !== "dev") {
     </section>
 
     <p class="text-xs text-zinc-400 dark:text-zinc-600 pt-2 border-t">
-      Built with Astro, FastAPI, and SQLite.
+      {m.about_built_with()}
     </p>
   </main>
 </Layout>

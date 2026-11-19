@@ -1,4 +1,5 @@
-import { elapsedUnits, isYearly } from "./dates.js";
+import { elapsedUnits, isYearly, unitCount } from "./dates.js";
+import * as m from "../paraglide/messages.js";
 import type { EventOut, Person } from "./events";
 
 export type DashboardEntry = { person: Person; event: EventOut };
@@ -26,11 +27,11 @@ export function milestone(event: EventOut, today = new Date(), daysOffset = even
   occurrence.setDate(occurrence.getDate() + daysOffset);
   if (!isYearly(event.event_type)) {
     const count = elapsedUnits(event, occurrence);
-    return count > 0 ? `${count} ${event.event_type.unit}${count === 1 ? "" : "s"}` : "";
+    return count > 0 ? unitCount(count, event.event_type.unit) : "";
   }
   const years = occurrence.getFullYear() - event.year;
   if (years < 0) return "";
   return event.event_type.name.toLowerCase() === "birthday"
-    ? `Turns ${years}`
-    : `${years} ${years === 1 ? "year" : "years"}`;
+    ? m.dates_turns({ years })
+    : unitCount(years, "year");
 }

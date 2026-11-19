@@ -4,11 +4,23 @@ from ..auth import hash_password
 from ..database import get_db
 from ..images import delete_image
 from ..models import User
-from ..schemas import UserOut, UserAdminUpdate, UserRegister
-from ..dependencies import get_admin_user
+from ..schemas import LanguageUpdate, UserOut, UserAdminUpdate, UserRegister
+from ..dependencies import get_admin_user, get_current_user
 from ..seed import seed_default_event_types
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+@router.put("/language", response_model=UserOut)
+def update_language(
+    data: LanguageUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.language = data.language
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.get("/users", response_model=list[UserOut])

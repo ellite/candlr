@@ -1,6 +1,8 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { apiJson, isUnauthorized, backendUnavailable } from "../lib/api";
+import * as m from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
 
 const cookies = Astro.request.headers.get("cookie") ?? "";
 
@@ -32,31 +34,35 @@ if (meResult.status === "rejected") {
 const { username, is_admin } = meResult.value;
 const people = peopleResult.status === "fulfilled" ? peopleResult.value : [];
 const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.value : [];
+// Monday-first short weekday names in the current locale (2024-01-01 is a Monday).
+const weekdays = Array.from({ length: 7 }, (_, i) =>
+  new Intl.DateTimeFormat(getLocale(), { weekday: "short" }).format(new Date(2024, 0, 1 + i)),
+);
 ---
 
-<Layout title="Calendar" user={{ username, is_admin }} activePage="calendar">
+<Layout title={m.nav_calendar()} user={{ username, is_admin }} activePage="calendar">
   <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
     <div class="mb-6 flex items-center justify-between gap-3">
-      <h1 class="text-lg font-semibold tracking-tight">Calendar</h1>
+      <h1 class="text-lg font-semibold tracking-tight">{m.nav_calendar()}</h1>
       <div class="flex items-center gap-2">
         <button type="button" id="share-open-btn" class="btn-secondary inline-flex items-center gap-2 px-3 py-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
-          Share
+          {m.calendar_share()}
         </button>
         <button type="button" id="feed-open-btn" class="btn-secondary inline-flex items-center gap-2 px-3 py-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
           </svg>
-          Subscribe
+          {m.calendar_subscribe()}
         </button>
       </div>
     </div>
 
     <div class="card p-4 sm:p-6">
       <div class="flex items-center justify-between mb-4">
-        <button type="button" id="cal-prev-btn" class="icon-button btn-ghost p-2" aria-label="Previous month">
+        <button type="button" id="cal-prev-btn" class="icon-button btn-ghost p-2" aria-label={m.calendar_prev_month()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -64,10 +70,10 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
         <div class="flex items-center gap-3">
           <div id="cal-month-label" class="text-base font-semibold tabular-nums"></div>
           <button type="button" id="cal-today-btn" class="px-2 text-sm sm:text-xs text-zinc-600 dark:text-zinc-300 hover:underline">
-            Today
+            {m.dashboard_today()}
           </button>
         </div>
-        <button type="button" id="cal-next-btn" class="icon-button btn-ghost p-2" aria-label="Next month">
+        <button type="button" id="cal-next-btn" class="icon-button btn-ghost p-2" aria-label={m.calendar_next_month()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
           </svg>
@@ -75,7 +81,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
       </div>
 
       <div class="grid grid-cols-7 gap-1 mb-1">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+        {weekdays.map((d) => (
           <div class="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 py-1">{d}</div>
         ))}
       </div>
@@ -90,7 +96,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
     <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 id="day-modal-title" class="text-base font-semibold"></h2>
-        <button type="button" class="day-close icon-button btn-ghost p-1.5" aria-label="Close">
+        <button type="button" class="day-close icon-button btn-ghost p-1.5" aria-label={m.common_close()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -105,8 +111,8 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
     <div class="share-backdrop absolute inset-0 bg-black/40"></div>
     <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto p-6">
       <div class="flex items-center justify-between mb-2">
-        <h2 class="text-base font-semibold">Share this calendar</h2>
-        <button type="button" class="share-close icon-button btn-ghost p-1.5" aria-label="Close">
+        <h2 class="text-base font-semibold">{m.calendar_share_title()}</h2>
+        <button type="button" class="share-close icon-button btn-ghost p-1.5" aria-label={m.common_close()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -117,13 +123,13 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
 
       <form id="share-form">
         <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-          Create a link that shows a read-only calendar to anyone who has it, without logging in. Notes are never shared. Manage or delete links in Settings.
+          {m.calendar_share_intro()}
         </p>
 
-        <label class="label" for="share-name">Name</label>
-        <input id="share-name" class="input mb-4" type="text" maxlength="100" placeholder="Family" required />
+        <label class="label" for="share-name">{m.common_name()}</label>
+        <input id="share-name" class="input mb-4" type="text" maxlength="100" placeholder={m.calendar_share_name_placeholder()} required />
 
-        <div class="label">Event types to share</div>
+        <div class="label">{m.calendar_share_event_types()}</div>
         <div id="share-types" class="space-y-1.5 mb-4">
           {eventTypes.map((et) => (
             <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -132,44 +138,44 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
             </label>
           ))}
           {eventTypes.length === 0 && (
-            <p class="text-sm text-zinc-600 dark:text-zinc-300">You have no event types yet.</p>
+            <p class="text-sm text-zinc-600 dark:text-zinc-300">{m.calendar_no_event_types()}</p>
           )}
         </div>
 
         <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
           <input type="checkbox" class="toggle" id="share-photos" />
-          Show card photos
+          {m.calendar_show_photos()}
         </label>
         <label class="flex items-center gap-2 text-sm cursor-pointer mb-1">
           <input type="checkbox" class="toggle" id="share-ages" />
-          Show ages and years
+          {m.calendar_show_ages()}
         </label>
         <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
-          Shows "Turns 37" style labels. Off keeps birth years out of the link.
+          {m.calendar_show_ages_hint()}
         </p>
         <label class="flex items-center gap-2 text-sm cursor-pointer mb-1">
           <input type="checkbox" class="toggle" id="share-addresses" />
-          Show addresses
+          {m.calendar_show_addresses()}
         </label>
         <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
-          Shows each card's address to anyone with the link. Off keeps it private.
+          {m.calendar_show_addresses_hint()}
         </p>
 
-        <button type="submit" id="share-create-btn" class="btn-primary">Create link</button>
+        <button type="submit" id="share-create-btn" class="btn-primary">{m.calendar_create_link()}</button>
       </form>
 
       <div id="share-created" class="hidden">
         <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-          Anyone with this link can see the dates you shared, so only send it to people you trust. Delete it in Settings to stop sharing.
+          {m.calendar_share_created_note()}
         </p>
-        <label class="label" for="share-url">Link</label>
+        <label class="label" for="share-url">{m.calendar_link()}</label>
         <div class="flex gap-2 mb-2">
           <input id="share-url" class="input" type="text" readonly />
-          <button type="button" id="share-copy-btn" class="btn-secondary flex-shrink-0">Copy</button>
+          <button type="button" id="share-copy-btn" class="btn-secondary flex-shrink-0">{m.common_copy()}</button>
         </div>
         <div class="flex items-center gap-2 mt-4">
-          <button type="button" id="share-another-btn" class="btn-secondary">Create another</button>
-          <a href="/settings#shares" class="btn-secondary">Manage links</a>
+          <button type="button" id="share-another-btn" class="btn-secondary">{m.calendar_create_another()}</button>
+          <a href="/settings#shares" class="btn-secondary">{m.calendar_manage_links()}</a>
         </div>
       </div>
     </div>
@@ -180,41 +186,41 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
     <div class="feed-backdrop absolute inset-0 bg-black/40"></div>
     <div class="relative bg-surface dark:bg-surface-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto p-6">
       <div class="flex items-center justify-between mb-2">
-        <h2 class="text-base font-semibold">Subscribe in your calendar app</h2>
-        <button type="button" class="feed-close icon-button btn-ghost p-1.5" aria-label="Close">
+        <h2 class="text-base font-semibold">{m.calendar_feed_title()}</h2>
+        <button type="button" class="feed-close icon-button btn-ghost p-1.5" aria-label={m.common_close()}>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
       <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
-        Get every birthday and anniversary in Google Calendar, Apple Calendar, Thunderbird or any app that can subscribe to an iCal link. It stays up to date as you add cards.
+        {m.calendar_feed_intro()}
       </p>
 
       <div id="feed-status" class="hidden text-sm px-3.5 py-2.5 rounded-lg mb-4"></div>
 
       <div id="feed-off" class="hidden">
-        <button type="button" id="feed-create-btn" class="btn-primary">Create subscription link</button>
+        <button type="button" id="feed-create-btn" class="btn-primary">{m.calendar_feed_create()}</button>
       </div>
 
       <div id="feed-on" class="hidden">
-        <label class="label" for="feed-url">Subscription link</label>
+        <label class="label" for="feed-url">{m.calendar_feed_link()}</label>
         <div class="flex gap-2 mb-2">
           <input id="feed-url" class="input" type="text" readonly />
-          <button type="button" id="feed-copy-btn" class="btn-secondary flex-shrink-0">Copy</button>
+          <button type="button" id="feed-copy-btn" class="btn-secondary flex-shrink-0">{m.common_copy()}</button>
         </div>
-        <a id="feed-webcal" href="#" class="text-sm font-medium hover:underline">Open in calendar app</a>
+        <a id="feed-webcal" href="#" class="text-sm font-medium hover:underline">{m.calendar_feed_open()}</a>
 
         <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-4">
-          Anyone with this link can see your dates, so keep it private. Google Calendar (Other calendars, From URL) can only reach it if your Candlr address is available from the internet.
+          {m.calendar_feed_privacy()}
         </p>
 
         <div class="flex items-center gap-4 mt-4 pt-4 border-t">
-          <button type="button" id="feed-rotate-btn" class="text-sm font-medium hover:underline">New link</button>
-          <button type="button" id="feed-disable-btn" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">Turn off</button>
+          <button type="button" id="feed-rotate-btn" class="text-sm font-medium hover:underline">{m.calendar_feed_new_link()}</button>
+          <button type="button" id="feed-disable-btn" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">{m.calendar_feed_turn_off()}</button>
         </div>
         <p id="feed-hint" class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
-          A new link or turning it off stops the current link from working.
+          {m.calendar_feed_hint()}
         </p>
       </div>
     </div>
@@ -226,7 +232,8 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
   <script>
     import { avatarHtml, escapeHtml } from "../lib/avatar.js";
     import { createMonthGrid } from "../lib/calendarGrid.js";
-    import { MONTH_NAMES, ageLabelForOccurrence, highlightNumber } from "../lib/dates.js";
+    import * as m from "../paraglide/messages.js";
+    import { monthDay, ageLabelForOccurrence, highlightNumber } from "../lib/dates.js";
     import { copyText, shareUrl } from "../lib/shares.js";
     import { lockScroll, unlockScroll } from "../lib/scrollLock.js";
 
@@ -248,7 +255,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
     const dayModalList = document.getElementById("day-modal-list");
 
     function openDayModal(month, day, year, entries) {
-      dayModalTitle.textContent = `${MONTH_NAMES[month - 1]} ${day}`;
+      dayModalTitle.textContent = monthDay(month, day);
       dayModalList.innerHTML = "";
       for (const { person, event } of entries) {
         const row = document.createElement("a");
@@ -322,7 +329,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
       shareStatus.classList.add("hidden");
       const ids = [...shareModal.querySelectorAll(".share-type:checked")].map((el) => Number(el.value));
       if (ids.length === 0) {
-        showShareStatus("Select at least one event type to share");
+        showShareStatus(m.calendar_select_event_type());
         return;
       }
       shareCreateBtn.disabled = true;
@@ -333,7 +340,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
           body: JSON.stringify({ name: shareName.value, event_type_ids: ids, show_photos: sharePhotos.checked, show_ages: shareAges.checked, show_addresses: shareAddresses.checked }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not create the link");
+        if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : m.calendar_create_failed());
         shareUrlInput.value = shareUrl(data.token);
         shareForm.classList.add("hidden");
         shareCreated.classList.remove("hidden");
@@ -346,10 +353,10 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
 
     shareCopyBtn.addEventListener("click", async () => {
       if (await copyText(shareUrlInput.value, shareUrlInput)) {
-        shareCopyBtn.textContent = "Copied";
-        setTimeout(() => (shareCopyBtn.textContent = "Copy"), 1500);
+        shareCopyBtn.textContent = m.common_copied();
+        setTimeout(() => (shareCopyBtn.textContent = m.common_copy()), 1500);
       } else {
-        showShareStatus("Could not copy, select the link and copy it manually");
+        showShareStatus(m.calendar_copy_failed());
       }
     });
 
@@ -402,7 +409,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
     async function feedRequest(method) {
       const res = await fetch("/api/calendar/feed", { method });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      if (!res.ok) throw new Error(data.detail || m.common_something_went_wrong());
       return data.token;
     }
 
@@ -412,7 +419,7 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
       button.addEventListener("click", async () => {
         if (button.dataset.armed !== "1") {
           button.dataset.armed = "1";
-          button.textContent = "Click again to confirm";
+          button.textContent = m.common_click_again();
           timer = setTimeout(() => disarm(), 4000);
           return;
         }
@@ -472,21 +479,21 @@ const eventTypes = eventTypesResult.status === "fulfilled" ? eventTypesResult.va
         copied = document.execCommand("copy");
       }
       if (copied) {
-        feedCopyBtn.textContent = "Copied";
-        setTimeout(() => (feedCopyBtn.textContent = "Copy"), 1500);
+        feedCopyBtn.textContent = m.common_copied();
+        setTimeout(() => (feedCopyBtn.textContent = m.common_copy()), 1500);
       } else {
-        showFeedStatus("Could not copy, select the link and copy it manually", true);
+        showFeedStatus(m.calendar_copy_failed(), true);
       }
     });
 
-    twoStep(feedRotateBtn, "New link", async () => {
+    twoStep(feedRotateBtn, m.calendar_feed_new_link(), async () => {
       renderFeed(await feedRequest("POST"));
-      showFeedStatus("New link created. Subscribe again with it, the old one no longer works.", false);
+      showFeedStatus(m.calendar_feed_rotated(), false);
     });
-    twoStep(feedDisableBtn, "Turn off", async () => {
+    twoStep(feedDisableBtn, m.calendar_feed_turn_off(), async () => {
       await feedRequest("DELETE");
       renderFeed(null);
-      showFeedStatus("Subscription link turned off.", false);
+      showFeedStatus(m.calendar_feed_disabled(), false);
     });
 
     feedUrl.addEventListener("focus", () => feedUrl.select());

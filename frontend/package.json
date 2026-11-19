@@ -7,6 +7,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "pretest": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "dev": "astro dev --port 4258",
     "build": "astro build",
@@ -21,5 +22,10 @@
     "dompurify": "^3.2.0",
     "marked": "^15.0.0",
     "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@inlang/paraglide-js": "^2.29.3",
+    "@inlang/plugin-m-function-matcher": "^2.4.3",
+    "@inlang/plugin-message-format": "^4.6.0"
   }
 }

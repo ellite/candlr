@@ -1,3 +1,5 @@
+import * as m from "../paraglide/messages.js";
+
 // Reminder-state indicators shared by the Events card grid and the person
 // detail sheet, so both draw the same bell.
 const BELL =
@@ -18,7 +20,7 @@ export function hasReminder(person) {
 export function cardBellHtml(person) {
   if (!hasReminder(person)) return "";
   const on = person.events.filter((event) => event.notify).length;
-  const label = person.events.length > 1 ? `Reminders on for ${on} of ${person.events.length} dates` : "Reminders on";
+  const label = person.events.length > 1 ? m.reminders_on_for({ on, total: person.events.length }) : m.reminders_on();
   return `<span class="absolute top-2 right-2 text-zinc-500 dark:text-zinc-400" role="img" aria-label="${label}" title="${label}">${icon(BELL, "w-4 h-4")}</span>`;
 }
 
@@ -26,6 +28,6 @@ export function cardBellHtml(person) {
 // is readable without opening the edit form.
 export function reminderLineHtml(event) {
   return event.notify
-    ? `<div class="flex items-center gap-1 text-[13px] font-medium text-zinc-700 dark:text-zinc-200 mt-0.5">${icon(BELL, "w-3.5 h-3.5")}Reminders on</div>`
-    : `<div class="flex items-center gap-1 text-[13px] text-zinc-500 dark:text-zinc-400 mt-0.5">${icon(BELL_OFF, "w-3.5 h-3.5")}Reminders off</div>`;
+    ? `<div class="flex items-center gap-1 text-[13px] font-medium text-zinc-700 dark:text-zinc-200 mt-0.5">${icon(BELL, "w-3.5 h-3.5")}${m.reminders_on()}</div>`
+    : `<div class="flex items-center gap-1 text-[13px] text-zinc-500 dark:text-zinc-400 mt-0.5">${icon(BELL_OFF, "w-3.5 h-3.5")}${m.reminders_off()}</div>`;
 }

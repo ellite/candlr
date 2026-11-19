@@ -1,3 +1,5 @@
+import * as m from "../paraglide/messages.js";
+
 // Helpers for shared calendar links (Share modal on /calendar, list on /settings).
 
 // Built from the address the page is served on, so it is whatever URL the
@@ -22,6 +24,6 @@ export async function copyText(text, fallbackInput) {
 export async function listShares() {
   const res = await fetch("/api/shares");
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.detail || "Could not load shared calendars");
+  if (!res.ok) throw new Error(data?.detail || m.settings_shares_load_failed());
   return data;
 }

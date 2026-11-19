@@ -2,6 +2,8 @@
 import NavBar from "../components/NavBar.astro";
 import MobileNav from "../components/MobileNav.astro";
 import Toast from "../components/Toast.astro";
+import { getLocale } from "../paraglide/runtime.js";
+import * as m from "../paraglide/messages.js";
 
 interface Props {
   title?: string;
@@ -13,12 +15,12 @@ const { title = "Candlr", fullPage = false, user = null, activePage } = Astro.pr
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={getLocale()}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#fafafa" />
-    <meta name="description" content="A simple birthday calendar." />
+    <meta name="description" content={m.layout_meta_description()} />
     <link rel="icon" href="/favicon.ico?v=4" sizes="16x16 32x32 48x48 64x64" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-v4.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4" />
