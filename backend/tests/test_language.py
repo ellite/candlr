@@ -40,10 +40,11 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(login.json()["language"], "en")
 
     def test_update_persists_and_is_returned_by_me(self):
-        res = self.client.put("/settings/language", json={"language": "pt-PT"})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json()["language"], "pt-PT")
-        self.assertEqual(self.client.get("/auth/me").json()["language"], "pt-PT")
+        for lang in ("pt-PT", "de", "es", "fr", "it", "en"):
+            res = self.client.put("/settings/language", json={"language": lang})
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json()["language"], lang)
+            self.assertEqual(self.client.get("/auth/me").json()["language"], lang)
 
     def test_unsupported_language_rejected(self):
         res = self.client.put("/settings/language", json={"language": "xx"})

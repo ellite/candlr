@@ -36,7 +36,7 @@ class UserOut(BaseModel):
 
 
 class LanguageUpdate(BaseModel):
-    language: Literal["en", "pt-PT"]
+    language: Literal["en", "de", "es", "fr", "it", "pt-PT"]
 
 
 class ChangePassword(BaseModel):
