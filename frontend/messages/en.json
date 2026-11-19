@@ -497,5 +497,9 @@
   "shared_prev_month": "Previous month",
   "shared_next_month": "Next month",
   "shared_today": "Today",
-  "shared_close": "Close"
+  "shared_close": "Close",
+  "settings_edit": "Edit",
+  "settings_edit_named": "Edit {name}",
+  "settings_edit_event_type_title": "Edit event type",
+  "settings_event_type_update_failed": "Failed to update event type"
 }

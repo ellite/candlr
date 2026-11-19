@@ -31,7 +31,8 @@ export function milestone(event: EventOut, today = new Date(), daysOffset = even
   }
   const years = occurrence.getFullYear() - event.year;
   if (years < 0) return "";
-  return event.event_type.name.toLowerCase() === "birthday"
+  const name = event.event_type.name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return ["birthday", "aniversario", "aniversario de nascimento", "cumpleanos", "geburtstag"].includes(name)
     ? m.dates_turns({ years })
     : unitCount(years, "year");
 }

@@ -66,3 +66,10 @@ test("non-yearly cadences count units since the start, yearly ones keep their ag
   assert.equal(milestone(typed(1, "month", { year: null, year_known: false }), today, 0), "");
   assert.equal(milestone(event(1, 0, { year: 1990, month: 10, day: 8 }), today, 0), "Turns 36");
 });
+
+test("localized birthday names retain birthday milestones", () => {
+  for (const name of ["Aniversário", "Aniversario", " ANIVERSÁRIO ", "Cumpleaños", "Geburtstag"]) {
+    assert.equal(milestone(event(1, 0, { event_type: { name, interval: 1, unit: "year" } }), new Date(2026, 0, 1)), "Turns 26");
+  }
+  assert.equal(milestone(event(1, 0, { event_type: { name: "Aniversário de casamento", interval: 1, unit: "year" } }), new Date(2026, 0, 1)), "26 years");
+});

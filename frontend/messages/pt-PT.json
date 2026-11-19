@@ -497,5 +497,9 @@
   "shared_prev_month": "Mês anterior",
   "shared_next_month": "Mês seguinte",
   "shared_today": "Hoje",
-  "shared_close": "Fechar"
+  "shared_close": "Fechar",
+  "settings_edit": "Editar",
+  "settings_edit_named": "Editar {name}",
+  "settings_edit_event_type_title": "Editar tipo de evento",
+  "settings_event_type_update_failed": "Não foi possível atualizar o tipo de evento"
 }

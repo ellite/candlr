@@ -105,6 +105,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
                 {cadenceLabel(et.interval, et.unit)}
               </span>
             )}
+            <button type="button" class="icon-button text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 flex-shrink-0 p-1" data-edit-event-type={et.id} data-name={et.name} data-interval={et.interval} data-unit={et.unit} data-is-default={et.is_default ? "true" : "false"} title={m.settings_edit()} aria-label={m.settings_edit_named({ name: et.name })}><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m16 4 4 4M4 20l4-1L20 7a2.12 2.12 0 0 0-3-3L5 16l-1 4Z" /></svg></button>
             {!et.is_default && <button
               class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1"
               data-delete-event-type={et.id}
@@ -493,6 +494,44 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     </div>
   </div>
 
+  <div id="edit-event-type-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div id="edit-event-type-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-surface dark:bg-surface-dark w-full min-w-0 max-w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl min-h-[min(30rem,92dvh)] max-h-[92dvh] overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="edit-event-type-title">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="edit-event-type-title" class="text-base font-semibold">{m.settings_edit_event_type_title()}</h2>
+        <button type="button" id="edit-event-type-close-btn" class="icon-button btn-ghost p-1.5" aria-label={m.settings_close()}>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="edit-event-type-error" role="alert" class="hidden bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3.5 py-2.5 rounded-lg mb-3"></div>
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="edit-event-type-name">{m.settings_name()}</label>
+          <input id="edit-event-type-name" class="input" type="text" placeholder={m.settings_event_type_placeholder()} maxlength="64" />
+        </div>
+        <div>
+          <label class="label" for="edit-event-type-interval">{m.settings_repeats_every()}</label>
+          <div class="flex items-center gap-2">
+            <input id="edit-event-type-interval" class="input w-24 flex-shrink-0" type="number" min="1" max="1000" value="1" />
+            <select id="edit-event-type-unit" class="select flex-1 min-w-0" aria-label={m.settings_repeat_unit()}>
+              <option value="day">{m.settings_unit_days()}</option>
+              <option value="week">{m.settings_unit_weeks()}</option>
+              <option value="month">{m.settings_unit_months()}</option>
+              <option value="year" selected>{m.settings_unit_years()}</option>
+            </select>
+          </div>
+          <p id="edit-event-type-hint" class="hidden text-xs text-zinc-600 dark:text-zinc-300 mt-2"></p>
+        </div>
+      </div>
+      <div class="flex gap-2 justify-end mt-5">
+        <button id="edit-event-type-cancel-btn" type="button" class="btn-secondary">{m.settings_cancel()}</button>
+        <button id="edit-event-type-save-btn" type="button" class="btn-primary">{m.settings_save()}</button>
+      </div>
+    </div>
+  </div>
+
   <div id="carddav-disconnect-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="carddav-disconnect-backdrop" class="absolute inset-0 bg-black/40"></div>
     <div class="relative card p-6 w-full max-w-sm">
@@ -714,6 +753,7 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
     function eventTypeRowHtml(et) {
       const name = document.createElement("div");
       name.textContent = et.name;
+      const escapedName = name.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       const cadence = et.interval === 1 && et.unit === "year"
         ? ""
         : `<span class="text-xs text-zinc-500 dark:text-zinc-400 flex-shrink-0">${cadenceLabel(et.interval, et.unit)}</span>`;
@@ -725,9 +765,10 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
               <circle cx="15" cy="6" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="15" cy="18" r="1.4" />
             </svg>
           </button>
-          <span class="text-sm flex-1 truncate">${name.innerHTML}</span>
+          <span class="text-sm flex-1 truncate">${escapedName}</span>
           ${cadence}
-          ${!et.is_default ? `<button class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${name.innerHTML}" title="${m.settings_delete()}" aria-label="${m.settings_delete_named({ name: name.innerHTML })}">
+          <button type="button" class="icon-button text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 flex-shrink-0 p-1" data-edit-event-type="${et.id}" data-name="${escapedName}" data-interval="${et.interval}" data-unit="${et.unit}" data-is-default="${et.is_default ? "true" : "false"}" title="${m.settings_edit()}" aria-label="${m.settings_edit_named({ name: escapedName })}"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m16 4 4 4M4 20l4-1L20 7a2.12 2.12 0 0 0-3-3L5 16l-1 4Z" /></svg></button>
+          ${!et.is_default ? `<button class="icon-button text-zinc-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 p-1" data-delete-event-type="${et.id}" data-name="${escapedName}" title="${m.settings_delete()}" aria-label="${m.settings_delete_named({ name: escapedName })}">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -779,6 +820,87 @@ const notifyTime = notifyPreferencesResult.status === "fulfilled" ? notifyPrefer
         if (e.key === "Enter") addEventType();
       });
     }
+
+    const editModal = document.getElementById("edit-event-type-modal");
+    const editName = document.getElementById("edit-event-type-name");
+    const editInterval = document.getElementById("edit-event-type-interval");
+    const editUnit = document.getElementById("edit-event-type-unit");
+    const editError = document.getElementById("edit-event-type-error");
+    const editSave = document.getElementById("edit-event-type-save-btn");
+    const editHint = document.getElementById("edit-event-type-hint");
+    let editTrigger = null;
+    function syncEditCadence() {
+      editHint.classList.toggle("hidden", Number(editInterval.value) === 1 && ["month", "year"].includes(editUnit.value));
+      editHint.textContent = m.settings_cadence_hint();
+    }
+    editInterval.addEventListener("input", syncEditCadence);
+    editUnit.addEventListener("change", syncEditCadence);
+    eventTypeList.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-edit-event-type]");
+      if (!btn) return;
+      editTrigger = btn;
+      editName.value = btn.dataset.name;
+      editInterval.value = btn.dataset.interval;
+      editUnit.value = btn.dataset.unit;
+      editError.classList.add("hidden");
+      syncEditCadence();
+      editModal.classList.remove("hidden");
+      editName.focus();
+    });
+    function closeEditModal() {
+      if (editSave.disabled) return;
+      editModal.classList.add("hidden");
+      editTrigger?.focus();
+    }
+    for (const id of ["edit-event-type-close-btn", "edit-event-type-cancel-btn", "edit-event-type-backdrop"]) {
+      document.getElementById(id).addEventListener("click", closeEditModal);
+    }
+    editModal.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); closeEditModal(); }
+      if (e.key === "Tab") {
+        const controls = [...editModal.querySelectorAll("button, input, select, [tabindex]")].filter((el) => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    editSave.addEventListener("click", async () => {
+      if (editSave.disabled || !editTrigger) return;
+      const name = editName.value.trim();
+      const interval = Number(editInterval.value);
+      editError.classList.add("hidden");
+      if (!name || !Number.isInteger(interval) || interval < 1 || interval > 1000) {
+        editError.textContent = !name ? m.settings_name_required() : m.settings_interval_invalid();
+        editError.classList.remove("hidden");
+        return;
+      }
+      // Disabling the focused button sends focus to BODY, outside the trap.
+      if (document.activeElement === editSave) editName.focus();
+      editSave.disabled = true;
+      try {
+        const res = await fetch(`/api/event-types/${editTrigger.dataset.editEventType}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, interval, unit: editUnit.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail?.[0]?.msg || data.detail || m.settings_event_type_update_failed());
+        const row = editTrigger.closest("li");
+        // Keep all labels and action data synchronized through the shared renderer.
+        row.insertAdjacentHTML("beforebegin", eventTypeRowHtml(data));
+        editTrigger = row.previousElementSibling.querySelector("[data-edit-event-type]");
+        row.remove();
+        editSave.disabled = false;
+        closeEditModal();
+      } catch (e) {
+        editError.textContent = e.message || m.settings_event_type_update_failed();
+        editError.classList.remove("hidden");
+      } finally {
+        editSave.disabled = false;
+        if (!editModal.classList.contains("hidden") && !editModal.contains(document.activeElement)) {
+          editName.focus();
+        }
+      }
+    });
 
     const deleteEventTypeModal = document.getElementById("delete-event-type-modal");
     const deleteEventTypeName = document.getElementById("delete-event-type-title");
