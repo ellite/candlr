@@ -233,6 +233,7 @@
   "events_name_placeholder": "Joana",
   "events_address": "Morada",
   "events_address_placeholder": "Para enviar um postal ou presente (opcional)",
+  "events_no_dates": "Sem datas",
   "events_dates_on_card": "Datas neste cartão",
   "events_event_type": "Tipo de evento",
   "events_date": "Data",

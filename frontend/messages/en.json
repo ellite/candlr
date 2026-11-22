@@ -233,6 +233,7 @@
   "events_name_placeholder": "Joanna",
   "events_address": "Address",
   "events_address_placeholder": "For sending a card or gift (optional)",
+  "events_no_dates": "No dates",
   "events_dates_on_card": "Dates on this card",
   "events_event_type": "Event type",
   "events_date": "Date",

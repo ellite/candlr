@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cadenceLabel, needsStartYear, occursOn } from "../src/lib/dates.js";
+import { ageLabel, ageLabelForOccurrence, formatDate, cadenceLabel, needsStartYear, occursOn } from "../src/lib/dates.js";
 
 const type = (interval, unit) => ({ id: 1, name: "T", is_default: false, interval, unit });
 const event = (interval, unit, month, day, year = 2026) => ({
@@ -45,4 +45,13 @@ test("every 37 days, 4 weeks, 7 months and 5 years count from the start date", (
   assert.deepEqual(days(event(5, "year", 3, 8, 2020), 2025), ["3-8"]);
   assert.deepEqual(days(event(5, "year", 3, 8, 2020), 2026), []);
   assert.deepEqual(days(event(4, "year", 2, 29, 2024), 2028), ["2-29"]);
+});
+
+test("missing dates have no date or age label", () => {
+  for (const value of [null, undefined]) {
+    assert.equal(formatDate(value), "");
+    assert.equal(ageLabel(value), "");
+    assert.equal(ageLabel(value, true), "");
+    assert.equal(ageLabelForOccurrence(value, new Date()), "");
+  }
 });

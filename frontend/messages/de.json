@@ -233,6 +233,7 @@
   "events_name_placeholder": "Johanna",
   "events_address": "Adresse",
   "events_address_placeholder": "Zum Versenden einer Karte oder eines Geschenks (optional)",
+  "events_no_dates": "Keine Daten",
   "events_dates_on_card": "Daten auf dieser Karte",
   "events_event_type": "Ereignistyp",
   "events_date": "Datum",

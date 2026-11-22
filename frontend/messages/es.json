@@ -233,6 +233,7 @@
   "events_name_placeholder": "Juana",
   "events_address": "Dirección",
   "events_address_placeholder": "Para enviar una tarjeta o regalo (opcional)",
+  "events_no_dates": "Sin fechas",
   "events_dates_on_card": "Fechas en esta tarjeta",
   "events_event_type": "Tipo de evento",
   "events_date": "Fecha",

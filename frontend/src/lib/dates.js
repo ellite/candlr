@@ -22,6 +22,7 @@ export function monthDay(month, day) {
 }
 
 export function formatDate(event) {
+  if (!event) return "";
   if (!(event.year_known && event.year)) return monthDay(event.month, event.day);
   const date = new Date(2000, event.month - 1, event.day);
   date.setFullYear(event.year);
@@ -150,6 +151,7 @@ export function occursOn(event, year, month, day) {
 }
 
 export function ageLabel(event, standalone = false) {
+  if (!event) return "";
   if (!event.year_known || !event.year) return "";
   const nextOccurrence = new Date();
   nextOccurrence.setDate(nextOccurrence.getDate() + event.days_until);
@@ -170,6 +172,7 @@ export function ageLabel(event, standalone = false) {
 // past occurrences read "Turned X", today's and future ones "Turns X".
 // Other cadences read "7 months".
 export function ageLabelForOccurrence(event, occurrence, today = new Date()) {
+  if (!event) return "";
   if (!event.year_known || !event.year) return "";
   if (!isYearly(event.event_type)) return countLabel(event, occurrence);
   const occurrenceYear = occurrence.getFullYear();

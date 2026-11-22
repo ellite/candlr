@@ -233,6 +233,7 @@
   "events_name_placeholder": "Giovanna",
   "events_address": "Indirizzo",
   "events_address_placeholder": "Per inviare un biglietto o un regalo (facoltativo)",
+  "events_no_dates": "Nessuna data",
   "events_dates_on_card": "Date su questa scheda",
   "events_event_type": "Tipo di evento",
   "events_date": "Data",
